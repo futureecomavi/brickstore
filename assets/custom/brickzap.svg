@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80" width="100" height="80">
+  <!-- Brick body -->
+  <path d="M10 55 L10 25 L50 5 L90 25 L90 55 L50 75 Z" fill="#E53935" stroke="#1A2744" stroke-width="4" stroke-linejoin="round"/>
+  <!-- Top face -->
+  <path d="M10 25 L50 5 L90 25 L50 45 Z" fill="#EF5350" stroke="#1A2744" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Studs -->
+  <ellipse cx="35" cy="20" rx="8" ry="5" fill="none" stroke="#1A2744" stroke-width="2.5"/>
+  <ellipse cx="65" cy="20" rx="8" ry="5" fill="none" stroke="#1A2744" stroke-width="2.5"/>
+  <!-- Lightning bolt -->
+  <path d="M55 10 L35 40 L48 40 L40 70 L70 35 L55 35 L65 10 Z" fill="#FFD600" stroke="#1A2744" stroke-width="2" stroke-linejoin="round"/>
+</svg>

@@ -36,6 +36,7 @@ class AddItemDialog;
 class ScriptManager;
 class ImportInventoryDialog;
 class ImportOrderDialog;
+class ImportBrickZapOrderDialog;
 class ImportCartDialog;
 class ImportWantedListDialog;
 class CheckForUpdates;
@@ -131,6 +132,7 @@ private:
     QPointer<AddItemDialog> m_add_dialog;
     QPointer<ImportInventoryDialog> m_importinventory_dialog;
     QPointer<ImportOrderDialog> m_importorder_dialog;
+    QPointer<ImportBrickZapOrderDialog> m_importbrickzaporder_dialog;
     QPointer<ImportCartDialog> m_importcart_dialog;
     QPointer<ImportWantedListDialog> m_importwanted_dialog;
     QPointer<CheckForUpdatesDialog> m_checkForUpdatesDialog;

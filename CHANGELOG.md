@@ -2,6 +2,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Added a **BrickZap** seller integration: import your BrickZap store inventory and your BrickZap
+  orders, and upload documents back to your BrickZap store. Set up an API client in the Settings
+  dialog to get started.
 
 ## [2026.7.1] - 2026-07-29
 

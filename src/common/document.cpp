@@ -22,6 +22,8 @@
 #include "bricklink/order.h"
 #include "bricklink/picture.h"
 #include "bricklink/priceguide.h"
+#include "brickzap/core.h"
+#include "brickzap/store.h"
 #include "common/application.h"
 #include "common/currency.h"
 #include "utility/exception.h"
@@ -448,6 +450,7 @@ Document::Document(DocumentModel *model, const QByteArray &columnsState, bool re
         { "document_export_bl_update_clip", [this](bool) { exportBrickLinkUpdateXMLToClipboard(); } },
         { "document_export_bl_invreq_clip", [this](bool) { exportBrickLinkInventoryRequestToClipboard(); } },
         { "document_export_bl_wantedlist_clip", [this](bool) { exportBrickLinkWantedListToClipboard(); } },
+        { "document_export_bz_store_inv", [this](bool) { uploadToBrickZapStore(); } },
 
         { "bricklink_catalog", [this](bool) {
               if (selectedLots().isEmpty())
@@ -1610,6 +1613,33 @@ QCoro::Task<> Document::exportBrickLinkWantedListToClipboard()
                 Application::openUrl(BrickLink::Core::urlForWantedListUpload());
         }
     }
+}
+
+QCoro::Task<> Document::uploadToBrickZapStore()
+{
+    auto *store = BrickZap::core()->store();
+    if (store->uploadStatus() == BrickLink::UpdateStatus::Updating)
+        co_return;
+
+    if (!co_await Application::inst()->checkBrickZapLogin())
+        co_return;
+
+    LotList lots = co_await exportCheck(ExportToFile);
+    if (lots.isEmpty())
+        co_return;
+
+    QString currencyCode = model()->currencyCode();
+    if (currencyCode.isEmpty())
+        currencyCode = Config::inst()->defaultCurrencyCode();
+
+    co_await UIHelpers::progressDialog(tr("Upload to BrickZap"), tr("Uploading to BrickZap"),
+                                       store,
+                                       &BrickZap::Store::uploadProgress,
+                                       &BrickZap::Store::uploadFinished,
+                                       [store, lots, currencyCode]() {
+                                           store->startUpload(lots, currencyCode);
+                                       },
+                                       &BrickZap::Store::cancelUpload);
 }
 
 void Document::moveColumn(int logical, int oldVisual, int newVisual)

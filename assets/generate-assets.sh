@@ -91,6 +91,16 @@ for color in "" "-dark"; do
   convert $cus/bricklink-cart$color.png -colorspace sRGB -scale $s $out/bricklink-cart.png
   convert $cus/bricklink-store$color.png -colorspace sRGB -scale $s $out/bricklink-store.png
 
+  # the BrickZap mark reads well on both light and dark themes, so there is no -dark variant
+  rsvg-convert $cus/brickzap.svg -w $s -f png -o $tmp/brickzap.png
+  convert -size ${s}x${s} canvas:transparent \
+        $tmp/brickzap.png -gravity center -composite \
+        -colorspace sRGB $out/brickzap.png
+  convert -size ${s}x${s} canvas:transparent \
+        \( $tmp/brickzap.png -scale $((s*5/8)) \) -geometry +0+0 -composite \
+        \( $tmp/brick-1x1$color.png -scale $((s*5/8)) \) -geometry +$((s*3/8))+$((s*3/8)) -composite \
+        $out/brickzap-store.png
+
   convert $tmp/brick-1x1$color.png -colorspace sRGB -scale $s $cus/overlay_plus.png -scale $s -composite $out/edit-additems.png
   convert $tmp/brick-1x1$color.png -colorspace sRGB -scale $s $cus/overlay_divide.png -scale $s -composite $out/edit-qty-divide.png
   convert $tmp/brick-1x1$color.png -colorspace sRGB -scale $s $cus/overlay_multiply.png -scale $s -composite $out/edit-qty-multiply.png

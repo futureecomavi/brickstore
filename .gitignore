@@ -4,6 +4,7 @@
 .rcc
 .svn
 .private-key
+.env
 Thumbs.db
 *.bak
 *~
@@ -22,6 +23,7 @@ Makefile*
 bin/brickstore
 BrickStore.exe
 BrickStore.app
+BrickStore.app.dSYM/
 brickstore.xcodeproj
 *.orig
 *.rej
@@ -39,3 +41,28 @@ CMakeUserPresets.json
 compile_commands.json
 .qtcreator/
 .vscode/
+
+# In-source CMake / Ninja (prefer out-of-tree: build/ or builds/)
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+BundleConfig.cmake
+Info.dSYM.plist
+build.ninja
+.ninja_deps
+.ninja_log
+_deps/
+.qt/
+qm/
+imports/
+locversions/
+lto.o/
+BrickStore_autogen/
+*_autogen/
+*_qmltyperegistrations.cpp
+meta_types/
+qmltypes/
+*.a

@@ -25,6 +25,8 @@
 #include "bricklink/order.h"
 #include "bricklink/store.h"
 #include "bricklink/wantedlist.h"
+#include "brickzap/orders.h"
+#include "brickzap/store.h"
 
 #include "common/document.h"
 #include "common/documentmodel.h"
@@ -114,6 +116,39 @@ Document *DocumentIO::importBrickLinkWantedList(BrickLink::WantedList *wantedLis
                                                 : wantedList->name();
     document->setTitle(tr("Wanted List %1").arg(name));
     document->setThumbnail(u"love-amarok"_qs);
+    return document;
+}
+
+Document *DocumentIO::importBrickZapStore(BrickZap::Store *store)
+{
+    Q_ASSERT(store);
+
+    BrickLink::IO::ParseResult pr;
+    const auto &lots = store->lots();
+    for (const auto *lot : lots)
+        pr.addLot(new Lot(*lot));
+    pr.setCurrencyCode(store->currencyCode());
+
+    auto *document = Document::create(new DocumentModel(std::move(pr)));
+    document->setTitle(tr("BrickZap Store %1")
+                           .arg(QLocale().toString(store->lastUpdated(), QLocale::ShortFormat)));
+    document->setThumbnail(u"brickzap-store"_qs);
+    return document;
+}
+
+Document *DocumentIO::importBrickZapOrder(const BrickZap::Order *order)
+{
+    Q_ASSERT(order);
+
+    BrickLink::IO::ParseResult pr;
+    const auto lots = order->loadLots();
+    for (auto *lot : lots)
+        pr.addLot(std::move(lot));
+    pr.setCurrencyCode(order->currencyCode());
+
+    auto *document = Document::create(new DocumentModel(std::move(pr)));
+    document->setTitle(tr("BrickZap Order %1 (%2)").arg(order->number(), order->buyerName()));
+    document->setThumbnail(u"brickzap"_qs);
     return document;
 }
 

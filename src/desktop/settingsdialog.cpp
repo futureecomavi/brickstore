@@ -29,6 +29,7 @@
 
 #include "bricklink/core.h"
 #include "bricklink/priceguide.h"
+#include "brickzap/core.h"
 #include "common/actionmanager.h"
 #include "common/application.h"
 #include "common/config.h"
@@ -1140,6 +1141,13 @@ void SettingsDialog::load()
     auto vatType = BrickLink::core()->priceGuideCache()->currentVatType();
     w_bl_pg_vat->setCurrentIndex(w_bl_pg_vat->findData(QVariant::fromValue(vatType)));
 
+    // --[ BRICKZAP ]--------------------------------------------------
+
+    w_bz_clientid->setText(Config::inst()->brickZapClientId());
+    w_bz_clientsecret->setText(Config::inst()->brickZapClientSecret());
+    w_bz_baseurl->setText(BrickZap::core()->apiBaseUrl());
+    w_bz_baseurl->setPlaceholderText(BrickZap::Core::defaultApiBaseUrl());
+
     // --[ LDRAW ]-----------------------------------------------------
 
     const auto potentialLDrawDirs = LDraw::Library::potentialLDrawDirs();
@@ -1234,6 +1242,15 @@ void SettingsDialog::save()
 
     auto vatType = w_bl_pg_vat->currentData().value<BrickLink::VatType>();
     BrickLink::core()->priceGuideCache()->setCurrentVatType(vatType);
+
+    // --[ BRICKZAP ]------------------------------------------------------------------
+
+    Config::inst()->setBrickZapClientId(w_bz_clientid->text().trimmed());
+    Config::inst()->setBrickZapClientSecret(w_bz_clientsecret->text());
+
+    const QString bzBaseUrl = w_bz_baseurl->text().trimmed();
+    Config::inst()->setBrickZapApiBaseUrl((bzBaseUrl == BrickZap::Core::defaultApiBaseUrl())
+                                              ? QString { } : bzBaseUrl);
 
     // --[ LDRAW ]---------------------------------------------------------------------
 

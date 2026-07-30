@@ -982,6 +982,111 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="brickzap">
+      <layout class="QVBoxLayout" name="verticalLayout_brickzap" stretch="0,10">
+       <item>
+        <widget class="QGroupBox" name="groupBox_brickzap">
+         <property name="title">
+          <string>BrickZap API Client</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_brickzap">
+          <property name="fieldGrowthPolicy">
+           <enum>QFormLayout::FieldGrowthPolicy::ExpandingFieldsGrow</enum>
+          </property>
+          <property name="formAlignment">
+           <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+          </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_bz_clientid">
+            <property name="text">
+             <string>Client ID</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="w_bz_clientid">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_bz_clientsecret">
+            <property name="text">
+             <string>Client Secret</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="w_bz_clientsecret">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="echoMode">
+             <enum>QLineEdit::EchoMode::PasswordEchoOnEdit</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_bz_baseurl">
+            <property name="text">
+             <string>API Server</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="w_bz_baseurl">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QLabel" name="label_bz_help">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Ignored">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Create an API client in your BrickZap seller dashboard, then paste its id and secret here. The client secret is stored in your system's keychain.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_brickzap">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Policy::Expanding</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>0</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
      <widget class="QWidget" name="ldraw">
       <layout class="QFormLayout" name="formLayout_2">
        <property name="fieldGrowthPolicy">
@@ -1578,6 +1683,15 @@
       <property name="icon">
        <iconset>
         <normaloff>:/assets/icons/brickstore-breeze/generated/bricklink.png</normaloff>:/assets/icons/brickstore-breeze/generated/bricklink.png</iconset>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>BrickZap</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>:/assets/icons/brickstore-breeze/generated/brickzap.png</normaloff>:/assets/icons/brickstore-breeze/generated/brickzap.png</iconset>
       </property>
      </item>
      <item>

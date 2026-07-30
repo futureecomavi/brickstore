@@ -67,6 +67,7 @@ target_link_libraries(common_module PRIVATE
     QCoro6::Core
     QCoro6::Qml
     bricklink_module
+    brickzap_module
 )
 
 if (BS_DESKTOP)

@@ -25,6 +25,9 @@ class Config : public QSettings
     Q_PROPERTY(bool showInputErrors READ showInputErrors WRITE setShowInputErrors NOTIFY showInputErrorsChanged)
     Q_PROPERTY(bool showDifferenceIndicators READ showDifferenceIndicators WRITE setShowDifferenceIndicators NOTIFY showDifferenceIndicatorsChanged)
     Q_PROPERTY(QString brickLinkAccessToken READ brickLinkAccessToken WRITE setBrickLinkAccessToken NOTIFY brickLinkAccessTokenChanged)
+    Q_PROPERTY(QString brickZapClientId READ brickZapClientId WRITE setBrickZapClientId NOTIFY brickZapCredentialsChanged)
+    Q_PROPERTY(QString brickZapClientSecret READ brickZapClientSecret WRITE setBrickZapClientSecret NOTIFY brickZapCredentialsChanged)
+    Q_PROPERTY(QString brickZapApiBaseUrl READ brickZapApiBaseUrl WRITE setBrickZapApiBaseUrl NOTIFY brickZapApiBaseUrlChanged)
     Q_PROPERTY(Config::UITheme uiTheme READ uiTheme WRITE setUITheme NOTIFY uiThemeChanged)
     Q_PROPERTY(Config::UISize mobileUISize READ mobileUISize WRITE setMobileUISize NOTIFY mobileUISizeChanged)
     Q_PROPERTY(int rowHeightPercent READ rowHeightPercent WRITE setRowHeightPercent NOTIFY rowHeightPercentChanged)
@@ -97,6 +100,14 @@ public:
 
     QString brickLinkAccessToken() const;
     void setBrickLinkAccessToken(const QString &accessToken);
+
+    QString brickZapClientId() const;
+    void setBrickZapClientId(const QString &clientId);
+    QString brickZapClientSecret() const;
+    void setBrickZapClientSecret(const QString &clientSecret);
+    QString brickZapApiBaseUrl() const;
+    void setBrickZapApiBaseUrl(const QString &baseUrl);
+
     QMap<QByteArray, int> updateIntervals() const;
     QMap<QByteArray, int> updateIntervalsDefault() const;
     void setUpdateIntervals(const QMap<QByteArray, int> &intervals);
@@ -210,6 +221,8 @@ signals:
     void uiThemeChanged(Config::UITheme theme);
     void mobileUISizeChanged(Config::UISize size);
     void brickLinkAccessTokenChanged();
+    void brickZapCredentialsChanged();
+    void brickZapApiBaseUrlChanged(const QString &baseUrl);
     void columnSpacingChanged(int spacing);
     void liveEditRowHeightChanged(bool liveEdit);
     void pinnedColorIdsChanged();
@@ -232,6 +245,7 @@ private:
     mutable QVector<Translation> m_translations;
     QString                    m_lastDirectory;
     mutable QString            m_brickLinkAccessToken;
+    mutable QString            m_brickZapClientSecret;
     McpPermissions             m_mcpPermissions { };
     Q_DISABLE_COPY_MOVE(Config)
 };

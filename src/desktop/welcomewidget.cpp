@@ -145,6 +145,8 @@ WelcomeWidget::WelcomeWidget(QWidget *parent)
          "document_import_bl_order",
          "document_import_bl_cart",
          "document_import_bl_wanted",
+         "document_import_bz_store_inv",
+         "document_import_bz_order",
          "document_import_ldraw_model",
          "document_import_bl_xml",
          "document_import_csv" }) {

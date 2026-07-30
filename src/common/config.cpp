@@ -68,6 +68,13 @@ Config::Config()
         qWarning() << "Failed to load BrickLink access token:" << e.errorString();
     }
 
+    try {
+        auto utf8cs = CredentialsManager::load(u"BrickStore"_qs, u"BrickZap-Client-Secret"_qs);
+        m_brickZapClientSecret = QString::fromUtf8(utf8cs);
+    } catch (const Exception &e) {
+        qWarning() << "Failed to load BrickZap client secret:" << e.errorString();
+    }
+
     const auto passwordKey = u"BrickLink/Login/Password"_qs;
     // always delete a legacy password
     if (contains(passwordKey))
@@ -573,6 +580,51 @@ void Config::setBrickLinkAccessToken(const QString &accessToken)
             qWarning() << "Failed to save BrickLink access token:" << e.errorString();
         }
         emit brickLinkAccessTokenChanged();
+    }
+}
+
+QString Config::brickZapClientId() const
+{
+    return value(u"BrickZap/ClientId"_qs).toString();
+}
+
+void Config::setBrickZapClientId(const QString &clientId)
+{
+    if (brickZapClientId() != clientId) {
+        setValue(u"BrickZap/ClientId"_qs, clientId);
+        emit brickZapCredentialsChanged();
+    }
+}
+
+QString Config::brickZapClientSecret() const
+{
+    return m_brickZapClientSecret;
+}
+
+void Config::setBrickZapClientSecret(const QString &clientSecret)
+{
+    if (m_brickZapClientSecret != clientSecret) {
+        m_brickZapClientSecret = clientSecret;
+        try {
+            CredentialsManager::save(u"BrickStore"_qs, u"BrickZap-Client-Secret"_qs,
+                                     clientSecret.toUtf8());
+        } catch (const Exception &e) {
+            qWarning() << "Failed to save BrickZap client secret:" << e.errorString();
+        }
+        emit brickZapCredentialsChanged();
+    }
+}
+
+QString Config::brickZapApiBaseUrl() const
+{
+    return value(u"BrickZap/ApiBaseUrl"_qs).toString();
+}
+
+void Config::setBrickZapApiBaseUrl(const QString &baseUrl)
+{
+    if (brickZapApiBaseUrl() != baseUrl) {
+        setValue(u"BrickZap/ApiBaseUrl"_qs, baseUrl);
+        emit brickZapApiBaseUrlChanged(baseUrl);
     }
 }
 

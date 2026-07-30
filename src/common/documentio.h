@@ -9,6 +9,7 @@
 #include "bricklink/global.h"
 #include "bricklink/io.h"
 #include "bricklink/lot.h"
+#include "brickzap/global.h"
 #include "common/csvimport.h"
 
 #include <QCoro/QCoroTask>
@@ -47,6 +48,9 @@ public:
     static Document *importBrickLinkOrder(BrickLink::Order *order);
     static Document *importBrickLinkCart(BrickLink::Cart *cart);
     static Document *importBrickLinkWantedList(BrickLink::WantedList *wantedList);
+
+    static Document *importBrickZapStore(BrickZap::Store *store);
+    static Document *importBrickZapOrder(const BrickZap::Order *order);
 
     static QCoro::Task<Document *> importBrickLinkXML(QString fileName = { });
     static QCoro::Task<Document *> importLDrawModel(QString fileName = { });

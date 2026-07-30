@@ -45,6 +45,8 @@ qt_add_library(desktop_module STATIC
     headerview.h
     historylineedit.cpp
     historylineedit.h
+    importbrickzaporderdialog.cpp
+    importbrickzaporderdialog.h
     importcartdialog.cpp
     importcartdialog.h
     importcartdialog.ui
@@ -135,6 +137,7 @@ target_link_libraries(desktop_module PRIVATE
     QCoro6::Core
     common_module
     bricklink_module
+    brickzap_module
     ldraw_module
     scanner_module
 )

@@ -26,6 +26,7 @@ FullscreenDialog {
         TabButton { text: qsTr("General");   property string pageName: "general" }
         TabButton { text: qsTr("UI");        property string pageName: "ui" }
         TabButton { text: qsTr("BrickLink"); property string pageName: "bricklink" }
+        TabButton { text: qsTr("BrickZap");  property string pageName: "brickzap" }
     }
 
     Component.onCompleted: {
@@ -263,6 +264,66 @@ FullscreenDialog {
                             currentIndex = indexOfValue(BL.BrickLink.currentVatType)
                         }
                         onActivated: { BL.BrickLink.currentVatType = currentValue }
+                    }
+                }
+            }
+        }
+        ScrollableLayout {
+            id: bzScroller
+
+            SwipeView.onIsCurrentItemChanged: { if (SwipeView.isCurrentItem) flashScrollIndicators() }
+
+            ColumnLayout {
+                width: bzScroller.width
+                GridLayout {
+                    columns: 2
+                    rowSpacing: root.spacing / 2
+                    columnSpacing: root.spacing
+                    Layout.leftMargin: root.spacing
+                    Layout.rightMargin: root.spacing
+
+                    Label {
+                        text: qsTr("Client ID")
+                        font.pixelSize: bzClientId.font.pixelSize
+                    }
+                    TextField {
+                        id: bzClientId
+                        Layout.fillWidth: true
+                        text: BS.Config.brickZapClientId
+                        onEditingFinished: BS.Config.brickZapClientId = text
+                    }
+
+                    Label {
+                        text: qsTr("Client Secret")
+                        font.pixelSize: bzClientSecret.font.pixelSize
+                    }
+                    TextField {
+                        id: bzClientSecret
+                        Layout.fillWidth: true
+                        echoMode: TextInput.PasswordEchoOnEdit
+                        text: BS.Config.brickZapClientSecret
+                        onEditingFinished: BS.Config.brickZapClientSecret = text
+                    }
+
+                    Label {
+                        text: qsTr("API Server")
+                        font.pixelSize: bzBaseUrl.font.pixelSize
+                    }
+                    TextField {
+                        id: bzBaseUrl
+                        Layout.fillWidth: true
+                        placeholderText: "https://api.brickzap.com"
+                        text: BS.Config.brickZapApiBaseUrl
+                        onEditingFinished: BS.Config.brickZapApiBaseUrl = text
+                    }
+
+                    Label {
+                        Layout.columnSpan: 2
+                        Layout.fillWidth: true
+                        text: qsTr("Create an API client in your BrickZap seller dashboard, then paste its id and secret here.")
+                        wrapMode: Text.Wrap
+                        leftPadding: 16
+                        rightPadding: 16
                     }
                 }
             }

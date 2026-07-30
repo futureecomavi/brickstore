@@ -54,6 +54,12 @@ public:
     void setOutputDevice(QIODevice *output);
     void setUserData(const QByteArray &tag, const QVariant &v) { m_userTag = tag; m_userData = v; }
     void setSessionToken(const QByteArray &token)              { m_sessionToken = token; }
+    void setRawHeader(const QByteArray &name, const QByteArray &value);
+    // the BrickLink client-id and session-token headers are only meaningful for BrickLink hosts
+    void setSendBrickLinkHeaders(bool send)        { m_bricklink_headers = send; }
+    // REST APIs use the whole 2xx range and return machine-readable error bodies on 4xx:
+    // completing these jobs lets the caller dispatch on responseCode() and parse data()
+    void setAcceptAllResponseCodes(bool accept)   { m_accept_all_codes = accept; }
     QVariant userData(const QByteArray &tag) const             { return m_userTag == tag ? m_userData : QVariant(); }
     QByteArray userTag() const                                 { return m_userTag; }
     QByteArray sessionToken() const                            { return m_sessionToken; }
@@ -105,16 +111,19 @@ private:
     QByteArray   m_userTag;
     QVariant     m_userData;
 
-    uint         m_respcode         : 16 = 0;
-    Status       m_status           : 4 = Inactive;
-    HttpMethod   m_http_method      : 1;
-    bool         m_reset_for_reuse  : 1 = false;
-    uint         m_retries_left     : 4 = 0;
-    bool         m_was_not_modified : 1 = false;
-    bool         m_follow_redirects : 1 = true;
-    bool         m_high_priority    : 1 = false;
-    bool         m_auto_delete      : 1 = true;
+    uint         m_respcode          : 16 = 0;
+    Status       m_status            : 4 = Inactive;
+    HttpMethod   m_http_method       : 1;
+    bool         m_reset_for_reuse   : 1 = false;
+    uint         m_retries_left      : 4 = 0;
+    bool         m_was_not_modified  : 1 = false;
+    bool         m_follow_redirects  : 1 = true;
+    bool         m_high_priority     : 1 = false;
+    bool         m_auto_delete       : 1 = true;
+    bool         m_bricklink_headers : 1 = true;
+    bool         m_accept_all_codes  : 1 = false;
     QByteArray   m_sessionToken;
+    QList<QPair<QByteArray, QByteArray>> m_rawHeaders;
 
     friend class Transfer;
     friend class TransferRetriever;
@@ -145,6 +154,7 @@ signals:
 
 private:
     void downloadFinished(QNetworkReply *reply);
+    static void readResponseBody(TransferJob *job);
 
     Transfer *m_transfer;
     QNetworkAccessManager *m_nam = nullptr;

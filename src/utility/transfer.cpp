@@ -76,6 +76,17 @@ QString TransferJob::errorString() const
                                      : QString { });
 }
 
+void TransferJob::setRawHeader(const QByteArray &name, const QByteArray &value)
+{
+    for (auto &header : m_rawHeaders) {
+        if (header.first.compare(name, Qt::CaseInsensitive) == 0) {
+            header.second = value;
+            return;
+        }
+    }
+    m_rawHeaders.append({ name, value });
+}
+
 void TransferJob::setOutputDevice(QIODevice *output)
 {
     if (m_file)
@@ -355,9 +366,13 @@ void TransferRetriever::schedule()
             req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                              QNetworkRequest::ManualRedirectPolicy);
         }
-        req.setRawHeader(BL_CLIENT_ID_HEADER, BL_CLIENT_ID_VALUE);
-        if (!j->sessionToken().isEmpty())
-            req.setRawHeader(BL_SESSION_TOKEN_HEADER, j->sessionToken());
+        if (j->m_bricklink_headers) {
+            req.setRawHeader(BL_CLIENT_ID_HEADER, BL_CLIENT_ID_VALUE);
+            if (!j->sessionToken().isEmpty())
+                req.setRawHeader(BL_SESSION_TOKEN_HEADER, j->sessionToken());
+        }
+        for (const auto &[name, value] : std::as_const(j->m_rawHeaders))
+            req.setRawHeader(name, value);
 
 #if QT_CONFIG(ssl)
         auto ssl = req.sslConfiguration();
@@ -405,6 +420,14 @@ void TransferRetriever::schedule()
     }
 }
 
+void TransferRetriever::readResponseBody(TransferJob *job)
+{
+    if (job->m_file)
+        job->m_file->write(job->m_reply->readAll());
+    else
+        job->m_data = job->m_reply->readAll();
+}
+
 void TransferRetriever::downloadFinished(QNetworkReply *reply)
 {
     auto *j = reply->property("bsJob").value<TransferJob *>();
@@ -436,8 +459,13 @@ void TransferRetriever::downloadFinished(QNetworkReply *reply)
                 return;
             }
         }
-        j->m_error_string = j->m_reply->errorString();
-        j->setStatus(TransferJob::Failed);
+        if (j->m_accept_all_codes && j->m_respcode) {
+            readResponseBody(j);
+            j->setStatus(TransferJob::Completed);
+        } else {
+            j->m_error_string = j->m_reply->errorString();
+            j->setStatus(TransferJob::Failed);
+        }
     } else {
 #if QT_CONFIG(ssl)
         m_sslSessionForHost.insert(j->m_url.host(), reply->sslConfiguration().sessionTicket());
@@ -466,16 +494,18 @@ void TransferRetriever::downloadFinished(QNetworkReply *reply)
             auto lastetag = j->m_reply->header(QNetworkRequest::ETagHeader);
             if (lastetag.isValid())
                 j->m_last_etag = lastetag.toString();
-            if (j->m_file)
-                j->m_file->write(j->m_reply->readAll());
-            else
-                j->m_data = j->m_reply->readAll();
+            readResponseBody(j);
             j->setStatus(TransferJob::Completed);
             break;
         }
         default:
-            j->m_error_string = u"Cannot handle HTTP response code %1"_qs.arg(j->m_respcode);
-            j->setStatus(TransferJob::Failed);
+            if (j->m_accept_all_codes) {
+                readResponseBody(j);
+                j->setStatus(TransferJob::Completed);
+            } else {
+                j->m_error_string = u"Cannot handle HTTP response code %1"_qs.arg(j->m_respcode);
+                j->setStatus(TransferJob::Failed);
+            }
             break;
         }
     }

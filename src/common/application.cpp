@@ -43,6 +43,8 @@
 #include "bricklink/store.h"
 #include "bricklink/cart.h"
 #include "bricklink/wantedlist.h"
+#include "brickzap/core.h"
+#include "brickzap/store.h"
 #include "common/actionmanager.h"
 #include "common/announcements.h"
 #include "common/application.h"
@@ -201,6 +203,8 @@ void Application::init()
         m_startupErrors << tr("Could not initialize the BrickLink kernel:") + u' ' + e.errorString();
     }
 
+    initBrickZap();
+
     if (QGuiApplication::queryKeyboardModifiers() & Qt::ShiftModifier) {
         // clean start:
         //  - remove the database
@@ -300,6 +304,25 @@ void Application::afterInit()
 
               if (success && store->isValid())
                   DocumentIO::importBrickLinkStore(store);
+          } },
+        { "document_import_bz_store_inv", [this](bool) -> QCoro::Task<> {
+              if (!co_await checkBrickZapLogin())
+                  co_return;
+
+              auto store = BrickZap::core()->store();
+              if (store->updateStatus() == BrickLink::UpdateStatus::Updating)
+                  co_return;  // no caching right now
+
+              bool success = co_await UIHelpers::progressDialog(tr("Import BrickZap Store"),
+                                                               tr("Importing BrickZap Store"),
+                                                               store,
+                                                               &BrickZap::Store::updateProgress,
+                                                               &BrickZap::Store::updateFinished,
+                                                               &BrickZap::Store::startUpdate,
+                                                               &BrickZap::Store::cancelUpdate);
+
+              if (success && store->isValid())
+                  DocumentIO::importBrickZapStore(store);
           } },
         { "view_show_input_errors", [](bool b) {
               Config::inst()->setShowInputErrors(b);
@@ -580,6 +603,7 @@ Application::~Application()
 {
     delete AppStatistics::inst();
     delete CheckForUpdates::inst();
+    delete BrickZap::core();
     delete BrickLink::core();
     delete LDraw::library();
     delete SystemInfo::inst();
@@ -642,6 +666,18 @@ QCoro::Task<bool> Application::checkBrickLinkLogin()
     if (co_await UIHelpers::question(tr("No valid BrickLink access token found.<br /><br />Do you want to change the settings now?")
                                      ) == UIHelpers::Yes) {
         emit showSettings(u"bricklink"_qs);
+    }
+    co_return false;
+}
+
+QCoro::Task<bool> Application::checkBrickZapLogin()
+{
+    if (BrickZap::core()->hasCredentials())
+        co_return true;
+
+    if (co_await UIHelpers::question(tr("No BrickZap API credentials found.<br /><br />Do you want to change the settings now?")
+                                     ) == UIHelpers::Yes) {
+        emit showSettings(u"brickzap"_qs);
     }
     co_return false;
 }
@@ -1089,6 +1125,37 @@ bool Application::initBrickLink()
     });
 
     return bl;
+}
+
+void Application::initBrickZap()
+{
+    BrickZap::create();
+
+    auto applyConfig = []() {
+        BrickZap::core()->setApiBaseUrl(Config::inst()->brickZapApiBaseUrl());
+        BrickZap::core()->setCredentials(Config::inst()->brickZapClientId(),
+                                        Config::inst()->brickZapClientSecret());
+    };
+    applyConfig();
+    connect(Config::inst(), &Config::brickZapCredentialsChanged, this, applyConfig);
+    connect(Config::inst(), &Config::brickZapApiBaseUrlChanged, this, applyConfig);
+
+    connect(BrickZap::core(), &BrickZap::Core::authenticationFinished,
+            this, [](const QString &error) {
+        if (error.isEmpty())
+            return;
+
+        UIHelpers::warning(tr("Failed to authenticate with BrickZap.") + u"<br><b>" + error
+                               + u"</b><br><br>" +
+                           tr("Please check your API client id and secret: you can click "
+                              "<i>Retry</i> to open the Settings."),
+                           UIHelpers::StandardButton::Ok | UIHelpers::StandardButton::Retry,
+                           UIHelpers::StandardButton::Ok)
+            .then([](UIHelpers::StandardButton btn) {
+                if (btn == UIHelpers::StandardButton::Retry)
+                    emit Application::inst()->showSettings(u"brickzap"_qs);
+            });
+    });
 }
 
 void Application::setupQml()

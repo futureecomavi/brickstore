@@ -198,6 +198,7 @@ public:
     QCoro::Task<> exportBrickLinkUpdateXMLToClipboard();
     QCoro::Task<> exportBrickLinkInventoryRequestToClipboard();
     QCoro::Task<> exportBrickLinkWantedListToClipboard();
+    QCoro::Task<> uploadToBrickZapStore();
 
     void moveColumn(int logical, int oldVisual, int newVisual);
     void resizeColumn(int logical, int oldSize, int newSize);

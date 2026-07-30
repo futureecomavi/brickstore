@@ -50,6 +50,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 add_subdirectory(bricklink)
 
 if (BS_DESKTOP OR BS_MOBILE)
+    add_subdirectory(brickzap)
     add_subdirectory(common)
     add_subdirectory(ldraw)
     add_subdirectory(scanner)

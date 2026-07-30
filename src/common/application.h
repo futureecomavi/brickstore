@@ -54,6 +54,7 @@ public:
     void setUILoggingHandler(UIMessageHandler callback);
 
     QCoro::Task<bool> checkBrickLinkLogin();
+    QCoro::Task<bool> checkBrickZapLogin();
     QCoro::Task<bool> updateDatabase();
 
     Announcements *announcements();
@@ -100,6 +101,7 @@ protected:
     void redirectQmlEngineWarnings(const QLoggingCategory &cat);
 
     bool initBrickLink();
+    void initBrickZap();
 
     void openQueuedDocuments();
     void updateTranslations();

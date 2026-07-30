@@ -59,6 +59,7 @@
 #include "aboutdialog.h"
 #include "additemdialog.h"
 #include "announcementsdialog.h"
+#include "importbrickzaporderdialog.h"
 #include "importcartdialog.h"
 #include "importinventorydialog.h"
 #include "importorderdialog.h"
@@ -582,6 +583,9 @@ void MainWindow::setupMenuBar()
                   "document_import_bl_cart",
                   "document_import_bl_wanted",
                   "-",
+                  "document_import_bz_store_inv",
+                  "document_import_bz_order",
+                  "-",
                   "document_import_ldraw_model",
                   "document_import_bl_xml",
                   "document_import_csv",
@@ -594,6 +598,8 @@ void MainWindow::setupMenuBar()
                   "document_export_bl_update_clip",
                   "document_export_bl_invreq_clip",
                   "document_export_bl_wantedlist_clip",
+                  "-",
+                  "document_export_bz_store_inv",
               });
 
     setupMenu("edit_status", {
@@ -946,6 +952,11 @@ void MainWindow::createActions()
               if (!m_importorder_dialog)
                   m_importorder_dialog = new ImportOrderDialog(this);
               m_importorder_dialog->show();
+          } },
+        { "document_import_bz_order", [this](bool) {
+              if (!m_importbrickzaporder_dialog)
+                  m_importbrickzaporder_dialog = new ImportBrickZapOrderDialog(this);
+              m_importbrickzaporder_dialog->show();
           } },
         { "document_import_bl_cart", [this](bool) -> QCoro::Task<> {
               if (!co_await Application::inst()->checkBrickLinkLogin())
@@ -1348,6 +1359,7 @@ void MainWindow::closeAllDialogs()
     delete m_add_dialog;
     delete m_importinventory_dialog;
     delete m_importorder_dialog;
+    delete m_importbrickzaporder_dialog;
     delete m_importcart_dialog;
     delete m_importwanted_dialog;
 }

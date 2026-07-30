@@ -97,12 +97,12 @@
     </message>
     <message>
         <location line="+2"/>
-        <location line="+15"/>
+        <location line="+19"/>
         <source>BrickLink XML...</source>
         <translation>BrickLink XML...</translation>
     </message>
     <message>
-        <location line="-15"/>
+        <location line="-19"/>
         <source>Ctrl+I,Ctrl+X</source>
         <comment>File|Import BrickLink XML</comment>
         <translation>Ctrl+I,Ctrl+X</translation>
@@ -150,6 +150,16 @@
         <source>Ctrl+I,Ctrl+W</source>
         <comment>File|Import BrickLink Wanted List</comment>
         <translation></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>BrickZap Store Inventory...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>BrickZap Order...</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+2"/>
@@ -229,7 +239,12 @@
         <translation>Ctrl+E,Ctrl+W</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+1"/>
+        <source>Upload to BrickZap Store...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>&amp;Edit</source>
         <translation>&amp;Bearbeiten</translation>
     </message>
@@ -885,7 +900,7 @@
 <context>
     <name>ActionModel</name>
     <message>
-        <location filename="../src/desktop/settingsdialog.cpp" line="+67"/>
+        <location filename="../src/desktop/settingsdialog.cpp" line="+68"/>
         <source>Other</source>
         <translation>Sonstige</translation>
     </message>
@@ -1105,7 +1120,7 @@
 <context>
     <name>Application</name>
     <message>
-        <location filename="../src/common/application.cpp" line="+195"/>
+        <location filename="../src/common/application.cpp" line="+197"/>
         <source>Your installation is broken: image format plugins are missing!</source>
         <translation>Die Installation ist defekt: benötigte Bildformat Plugins sind nicht verfügbar!</translation>
     </message>
@@ -1119,7 +1134,7 @@
         <translation type="vanished">Authentifizierung bei BrickLink als Benutzer %1 ist fehlgeschlagen</translation>
     </message>
     <message>
-        <location line="+92"/>
+        <location line="+94"/>
         <source>Import BrickLink Store</source>
         <translation>BrickLink Shop-Bestand importieren</translation>
     </message>
@@ -1129,7 +1144,7 @@
         <translation>BrickLink Shop-Bestand wird importiert</translation>
     </message>
     <message>
-        <location line="+63"/>
+        <location line="+82"/>
         <source>Could not load the BrickLink database files.&lt;br /&gt;&lt;br /&gt;The program is not functional without these files.</source>
         <translation>Die BrickLink Datenbankdateien konnten nicht geladen werden.&lt;br /&gt;&lt;br /&gt;Ohne diese Dateien ist das Programm nicht funktionsfähig.</translation>
     </message>
@@ -1180,7 +1195,7 @@
         <translation type="vanished">Keine gültigen BrickLink Logineinstellungen vorhanden.&lt;br /&gt;&lt;br /&gt;Wollen Sie diese Einstellungen jetzt ändern?</translation>
     </message>
     <message>
-        <location line="-283"/>
+        <location line="-302"/>
         <source>(empty)</source>
         <translation>(Leer)</translation>
     </message>
@@ -1199,9 +1214,24 @@
         <translation>Höchstwahrscheinlich ist der Zugriffstoken abgelaufen: &lt;i&gt;Wiederholen&lt;/i&gt; öffnet die Einstellungen um ihn zu erneuern.</translation>
     </message>
     <message>
-        <location line="+409"/>
+        <location line="+79"/>
+        <source>Import BrickZap Store</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Importing BrickZap Store</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+349"/>
         <source>No valid BrickLink access token found.&lt;br /&gt;&lt;br /&gt;Do you want to change the settings now?</source>
         <translation>Kein gültiger BrickLink Zugriffstoken&quot; vorhanden.&lt;br /&gt;&lt;br /&gt;Wollen Sie diese Einstellungen jetzt ändern?</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>No BrickZap API credentials found.&lt;br /&gt;&lt;br /&gt;Do you want to change the settings now?</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+23"/>
@@ -1262,6 +1292,16 @@
         <location line="+196"/>
         <source>The price-guide download mechanism changed. Please make sure your VAT setup is still correct on the BrickLink page in the Settings dialog.</source>
         <translation>Der Download-Mechanismus für Richtpreise hat sich geändert. Bitte stellen Sie sicher, dass die MwSt. Einstellungen auf der BrickLink Seite in den Einstellungen noch korrekt sind.</translation>
+    </message>
+    <message>
+        <location line="+59"/>
+        <source>Failed to authenticate with BrickZap.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Please check your API client id and secret: you can click &lt;i&gt;Retry&lt;/i&gt; to open the Settings.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1613,6 +1653,153 @@
     </message>
 </context>
 <context>
+    <name>BrickZap::Core</name>
+    <message>
+        <location filename="../src/brickzap/core.cpp" line="+195"/>
+        <source>No BrickZap API credentials found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+46"/>
+        <source>BrickZap did not return an access token.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>HTTP error %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>BrickZap::Orders</name>
+    <message>
+        <location filename="../src/brickzap/orders.cpp" line="+102"/>
+        <location line="+6"/>
+        <source>Failed to download the orders</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1"/>
+        <source>HTTP error %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+81"/>
+        <source>Date</source>
+        <translation type="unfinished">Datum</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Order ID</source>
+        <translation type="unfinished">Bestellnr.</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Status</source>
+        <translation type="unfinished">Status</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Buyer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Items</source>
+        <translation type="unfinished">Teile</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Total</source>
+        <translation type="unfinished">Gesamt</translation>
+    </message>
+    <message>
+        <location line="+56"/>
+        <source>Failed to parse the orders</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location line="+44"/>
+        <source>%Ln order item(s) could not be matched against the BrickLink catalog and were skipped.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>BrickZap::Store</name>
+    <message>
+        <location filename="../src/brickzap/store.cpp" line="+55"/>
+        <location line="+3"/>
+        <source>Failed to download the store inventory</source>
+        <translation type="unfinished">Konnte den Shop-Bestand nicht herunterladen</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+21"/>
+        <source>HTTP error %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-5"/>
+        <location line="+3"/>
+        <source>Failed to upload the inventory to BrickZap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+86"/>
+        <source>Failed to parse the store inventory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location line="+29"/>
+        <source>%Ln listing(s) could not be matched against the BrickLink catalog and were skipped.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+55"/>
+        <source>There are no lots that could be uploaded to BrickZap.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>The upload was cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>BrickZap did not return an import job id.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+36"/>
+        <source>The BrickZap import failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>The BrickZap import was cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>%1 listings created, %2 updated, %3 failed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location line="+3"/>
+        <source>%Ln lot(s) were skipped, because they are excluded or empty.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>ChangeCmd</name>
     <message numerus="yes">
         <location filename="../src/common/documentmodel.cpp" line="+254"/>
@@ -1769,23 +1956,27 @@
 <context>
     <name>ColumnCmd</name>
     <message>
+        <location filename="../src/common/document.cpp" line="+66"/>
         <source>Moved column %1</source>
-        <translation type="vanished">Spalte %1 verschoben</translation>
+        <translation>Spalte %1 verschoben</translation>
     </message>
     <message>
+        <location line="+2"/>
         <source>Show/hide column %1</source>
-        <translation type="vanished">Spalte %1 angezeigt/verborgen</translation>
+        <translation>Spalte %1 angezeigt/verborgen</translation>
     </message>
     <message>
+        <location line="+2"/>
         <source>Resized column %1</source>
-        <translation type="vanished">Größe der Spalte %1 geändert</translation>
+        <translation>Größe der Spalte %1 geändert</translation>
     </message>
 </context>
 <context>
     <name>ColumnLayoutCmd</name>
     <message>
+        <location line="+46"/>
         <source>Changed column layout</source>
-        <translation type="vanished">Spaltenlayout geändert</translation>
+        <translation>Spaltenlayout geändert</translation>
     </message>
 </context>
 <context>
@@ -2178,7 +2369,7 @@
 <context>
     <name>Document</name>
     <message>
-        <location filename="../src/common/document.cpp" line="+176"/>
+        <location filename="../src/common/document.cpp" line="+62"/>
         <source>Untitled</source>
         <translation>Unbenannt</translation>
     </message>
@@ -2274,7 +2465,7 @@
         <translation>Der neue Markierungstextr für alle ausgewählten Teile:</translation>
     </message>
     <message numerus="yes">
-        <location line="+83"/>
+        <location line="+84"/>
         <source>This file contains %n unknown item(s).</source>
         <translation>
             <numerusform>Diese Datei enhält ein ungültiges Teil.</numerusform>
@@ -2282,12 +2473,12 @@
         </translation>
     </message>
     <message>
-        <location line="-171"/>
+        <location line="-172"/>
         <source>Divide the quantities of all selected items by this number.&lt;br /&gt;&lt;br /&gt;(A check is made if all quantities are exactly divisible without remainder, before this operation is performed.)</source>
         <translation>Teile die Mengen aller ausgewählten Teile durch diese Zahl.&lt;br /&gt;&lt;br /&gt;(Es wird vor etwaigen Änderungen geprüft, ob alle Mengen ohne Rest teilbar sind.)</translation>
     </message>
     <message numerus="yes">
-        <location line="+175"/>
+        <location line="+176"/>
         <source>%n outdated item or color reference(s) in this file have been updated according to the BrickLink catalog.</source>
         <translation>
             <numerusform>Eine veraltete Teile- oder Farbreferenze in dieser Datei wurde anhand des BrickLink Katalogs aktualisiert.</numerusform>
@@ -2396,6 +2587,16 @@
         <location line="+34"/>
         <source>Enter the ID number of Wanted List (leave blank for the default Wanted List)</source>
         <translation>Geben Sie die ID-Nummer der Suchliste ein (für die Standardsuchliste das Feld einfach leer lassen)</translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Upload to BrickZap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Uploading to BrickZap</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+39"/>
@@ -2631,14 +2832,14 @@
 <context>
     <name>DocumentIO</name>
     <message>
-        <location filename="../src/common/documentio.cpp" line="+153"/>
+        <location filename="../src/common/documentio.cpp" line="+188"/>
         <location line="+32"/>
         <location line="+68"/>
         <source>Import of %1</source>
         <translation>Import von %1</translation>
     </message>
     <message>
-        <location line="-205"/>
+        <location line="-238"/>
         <source>All Models</source>
         <translation>Alle Modelle</translation>
     </message>
@@ -2676,6 +2877,16 @@
         <location line="+17"/>
         <source>Wanted List %1</source>
         <translation>Suchliste %1</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>BrickZap Store %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>BrickZap Order %1 (%2)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+10"/>
@@ -3405,6 +3616,64 @@
     </message>
 </context>
 <context>
+    <name>ImportBrickZapOrderDialog</name>
+    <message>
+        <location filename="../src/desktop/importbrickzaporderdialog.cpp" line="+178"/>
+        <source>Import BrickZap Order</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Import</source>
+        <translation type="unfinished">Importieren</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Import combined</source>
+        <translation type="unfinished">Zusammen importieren</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Filter the list for lines containing these words</source>
+        <translation type="unfinished">Die Listeneinträge anhand dieser Wörter filtern</translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Import Order</source>
+        <translation type="unfinished">Bestellung Import</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>You have selected multiple orders with differing currencies, which cannot be combined as-is.</source>
+        <translation type="unfinished">Es sind mehrere Bestellungen mit unterschiedlichen Währung ausgewählt, die so nicht zusammen importiert werden können.</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Do you want to continue and convert all prices to your default currency (%1)?</source>
+        <translation type="unfinished">Sollen zum Weitermachen alle Preise in deine Standardwährung (%1) konvertiert werden?</translation>
+    </message>
+    <message>
+        <location line="+49"/>
+        <source>Multiple BrickZap Orders</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Last updated %1</source>
+        <translation type="unfinished">Letzte Aktualisierung: %1</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Currently updating orders</source>
+        <translation type="unfinished">Bestellungen werden aktualisiert</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Last update failed</source>
+        <translation type="unfinished">Letzte Aktualisierung schlug fehl</translation>
+    </message>
+</context>
+<context>
     <name>ImportCartDialog</name>
     <message>
         <location filename="../src/desktop/importcartdialog.ui" line="+14"/>
@@ -4105,7 +4374,7 @@ Rechts-Click: Menü</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/desktop/mainwindow.cpp" line="+376"/>
+        <location filename="../src/desktop/mainwindow.cpp" line="+377"/>
         <source>Toolbar</source>
         <translation>Werkzeugleiste</translation>
     </message>
@@ -4150,7 +4419,7 @@ Rechts-Click: Menü</translation>
         <translation>Download...&lt;br&gt;Zu &lt;b&gt;%p%&lt;/b&gt; fertig&lt;br&gt;(%v von %m)</translation>
     </message>
     <message>
-        <location line="+573"/>
+        <location line="+583"/>
         <source>CSV / Text files</source>
         <translation>CSV / Text Dateien</translation>
     </message>
@@ -4180,7 +4449,7 @@ Rechts-Click: Menü</translation>
         <translation>Anordnung der Infoleisten zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../src/mobile/MainWindow.qml" line="+178"/>
+        <location filename="../src/mobile/MainWindow.qml" line="+179"/>
         <source>Unpin</source>
         <translation>Loslösen</translation>
     </message>
@@ -5684,7 +5953,7 @@ Rechts-Click: Menü</translation>
     </message>
     <message>
         <location line="+32"/>
-        <location filename="../src/mobile/SettingsDialog.qml" line="+50"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="+51"/>
         <source>Language</source>
         <translation>Sprache</translation>
     </message>
@@ -5716,7 +5985,35 @@ Rechts-Click: Menü</translation>
         <translation>&lt;a href=&apos;https://www.brickstore.dev/crash-reporting&apos;&gt;Siehe hier&lt;/a&gt; für mehr Infomationen.</translation>
     </message>
     <message>
-        <location line="+1112"/>
+        <location line="+700"/>
+        <source>BrickZap API Client</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="+196"/>
+        <source>Client ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="+11"/>
+        <source>Client Secret</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="+12"/>
+        <source>API Server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Create an API client in your BrickZap seller dashboard, then paste its id and secret here. The client secret is stored in your system&apos;s keychain.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+445"/>
         <source>Enable MCP server</source>
         <translation>MCP Server anschalten</translation>
     </message>
@@ -5756,7 +6053,13 @@ Rechts-Click: Menü</translation>
         <translation>Benutzeroberfläche</translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+18"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="-280"/>
+        <source>BrickZap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+36"/>
         <source>AI</source>
         <translation>KI</translation>
     </message>
@@ -5765,7 +6068,7 @@ Rechts-Click: Menü</translation>
         <translation type="vanished">Web-Browser Fenster öffnen bei Export in die Zwischenablage</translation>
     </message>
     <message>
-        <location line="-1468"/>
+        <location line="-1582"/>
         <source>Document Directory</source>
         <translation>Dokumenten Verzeichnis</translation>
     </message>
@@ -5804,13 +6107,13 @@ Rechts-Click: Menü</translation>
         <translation>BrickLink Datenbank, wenn älter als</translation>
     </message>
     <message>
-        <location line="+732"/>
-        <location filename="../src/mobile/SettingsDialog.qml" line="-61"/>
+        <location line="+837"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="-1"/>
         <source>BrickLink</source>
         <translation>BrickLink</translation>
     </message>
     <message>
-        <location line="-911"/>
+        <location line="-1016"/>
         <source>Row height</source>
         <translation>Zeilenhöhe</translation>
     </message>
@@ -5832,24 +6135,24 @@ Rechts-Click: Menü</translation>
         <translation type="vanished">Bitte den Benutzernamen eingeben - nicht die E-Mail-Adresse.</translation>
     </message>
     <message>
-        <location line="+913"/>
+        <location line="+1027"/>
         <source>LDraw</source>
         <translation>LDraw</translation>
     </message>
     <message>
-        <location line="-1488"/>
-        <location filename="../src/mobile/SettingsDialog.qml" line="+69"/>
+        <location line="-1602"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="+70"/>
         <source>Default currency</source>
         <translation>Standard Währung</translation>
     </message>
     <message>
-        <location line="+1461"/>
-        <location filename="../src/mobile/SettingsDialog.qml" line="-71"/>
+        <location line="+1566"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="-72"/>
         <source>General</source>
         <translation>Allgemein</translation>
     </message>
     <message>
-        <location line="-1404"/>
+        <location line="-1509"/>
         <source>Parting out items</source>
         <translation>Teile zerlegen</translation>
     </message>
@@ -5911,7 +6214,7 @@ Rechts-Click: Menü</translation>
     <message>
         <location line="-44"/>
         <location line="+26"/>
-        <location filename="../src/mobile/SettingsDialog.qml" line="+120"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="+121"/>
         <source>System default</source>
         <translation>Systemvorgabe</translation>
     </message>
@@ -5986,7 +6289,7 @@ Rechts-Click: Menü</translation>
         <translation type="vanished">The maximale Passwortlänge bei BrickLink ist 15 Zeichen.</translation>
     </message>
     <message>
-        <location line="+301"/>
+        <location line="+406"/>
         <source>Library</source>
         <translation>Bibliothek</translation>
     </message>
@@ -6011,12 +6314,12 @@ Rechts-Click: Menü</translation>
         <translation>Wählen Sie diese Option, falls Sie individuelle oder inoffzielle Teile benötigen</translation>
     </message>
     <message>
-        <location line="-314"/>
+        <location line="-419"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to &lt;a href=&quot;https://bricklink.com/v3/brickstore-access-management.page&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#3daee9;&quot;&gt;https://bricklink.com/v3/brickstore-access-management.page&lt;/span&gt;&lt;/a&gt;, click &lt;span style=&quot; font-weight:700;&quot;&gt;Renew Token&lt;/span&gt;, then &lt;span style=&quot; font-weight:700;&quot;&gt;Copy to Clipboard&lt;/span&gt;. Finally 📋 &lt;span style=&quot; font-weight:700;&quot;&gt;Paste&lt;/span&gt; it here above.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Gehe zu &lt;a href=&quot;https://bricklink.com/v3/brickstore-access-management.page&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#3daee9;&quot;&gt;https://bricklink.com/v3/brickstore-access-management.page&lt;/span&gt;&lt;/a&gt;, Klick auf &lt;span style=&quot; font-weight:700;&quot;&gt;Renew Token&lt;/span&gt;, dann &lt;span style=&quot; font-weight:700;&quot;&gt;Copy to Clipboard&lt;/span&gt;. Zum Schluss noch hier oben 📋 &lt;span style=&quot; font-weight:700;&quot;&gt;Einfügen&lt;/span&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location line="+348"/>
+        <location line="+453"/>
         <source>Status</source>
         <translation>Status</translation>
     </message>
@@ -6031,23 +6334,23 @@ Rechts-Click: Menü</translation>
         <translation>Jetzt</translation>
     </message>
     <message>
-        <location line="-794"/>
-        <location line="+1231"/>
+        <location line="-899"/>
+        <location line="+1345"/>
         <source>Toolbar</source>
         <translation>Werkzeugleiste</translation>
     </message>
     <message>
-        <location line="-395"/>
+        <location line="-404"/>
         <source>Customize the main toolbar using drag-and-drop</source>
         <translation>Anpassen der Hauptwerkzeugleiste mittels Ziehen und Ablegen</translation>
     </message>
     <message>
-        <location line="+404"/>
+        <location line="+413"/>
         <source>Keyboard</source>
         <translation>Tastatur</translation>
     </message>
     <message>
-        <location line="-293"/>
+        <location line="-302"/>
         <source>Customize the global keyboard shortcuts</source>
         <translation>Anpassen der globalen Tastenkürzel</translation>
     </message>
@@ -6079,7 +6382,7 @@ Rechts-Click: Menü</translation>
         <translation>Bildergröße Teile</translation>
     </message>
     <message>
-        <location filename="../src/desktop/settingsdialog.ui" line="-552"/>
+        <location filename="../src/desktop/settingsdialog.ui" line="-657"/>
         <source>Automatically update cached data</source>
         <translation>Zwischengespeicherte BrickLink Daten automatisch aktualisieren</translation>
     </message>
@@ -6162,7 +6465,7 @@ Rechts-Click: Menü</translation>
         <translation>Verzeichnis für Dokumente</translation>
     </message>
     <message>
-        <location line="+133"/>
+        <location line="+140"/>
         <source>The MCP server is running on port %1.</source>
         <translation>Der MCP Server läuft auf Port %1.</translation>
     </message>
@@ -6182,7 +6485,7 @@ Rechts-Click: Menü</translation>
         <translation>Das angegebene Dokumentenverzeichnis existiert nicht (oder es ist nicht les- und beschreibbar).&lt;br /&gt;Die Einstellung für das Dokumentenverzeichnis wird nicht geändert.</translation>
     </message>
     <message>
-        <location line="+79"/>
+        <location line="+88"/>
         <source>Not a valid LDraw installation</source>
         <translation>Keine gültige LDraw Installation</translation>
     </message>
@@ -6192,17 +6495,17 @@ Rechts-Click: Menü</translation>
         <translation>Gültige LDraw Installation</translation>
     </message>
     <message>
-        <location line="-428"/>
+        <location line="-444"/>
         <source>LDraw directory location</source>
         <translation>Verzeichnis der LDraw Installation</translation>
     </message>
     <message>
-        <location filename="../src/mobile/SettingsDialog.qml" line="-148"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="-149"/>
         <source>UI</source>
         <translation></translation>
     </message>
     <message>
-        <location line="+84"/>
+        <location line="+85"/>
         <source>Open Browser on Export</source>
         <translation>Öffne den Browser beim Export</translation>
     </message>
@@ -6227,8 +6530,13 @@ Rechts-Click: Menü</translation>
         <translation>Richtpreise</translation>
     </message>
     <message>
+        <location line="+79"/>
+        <source>Create an API client in your BrickZap seller dashboard, then paste its id and secret here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/desktop/settingsdialog.ui" line="-31"/>
-        <location filename="../src/mobile/SettingsDialog.qml" line="-77"/>
+        <location filename="../src/mobile/SettingsDialog.qml" line="-156"/>
         <source>Large</source>
         <translation>Gross</translation>
     </message>
@@ -6413,7 +6721,7 @@ Rechts-Click: Menü</translation>
         <translation type="vanished">G</translation>
     </message>
     <message>
-        <location line="+226"/>
+        <location line="+227"/>
         <source>CP</source>
         <translation>CP</translation>
     </message>
@@ -6586,7 +6894,7 @@ Rechts-Click: Menü</translation>
         <translation>Anheften</translation>
     </message>
     <message>
-        <location line="+56"/>
+        <location line="+58"/>
         <source>View tutorials</source>
         <translation>Tutorials ansehen</translation>
     </message>
@@ -6617,7 +6925,7 @@ Rechts-Click: Menü</translation>
         <translation>Zuletzt geöffnete Dateien</translation>
     </message>
     <message>
-        <location line="-51"/>
+        <location line="-52"/>
         <location filename="../src/desktop/welcomewidget.cpp" line="+1"/>
         <source>Document</source>
         <translation>Dokumente</translation>
@@ -6629,7 +6937,7 @@ Rechts-Click: Menü</translation>
         <translation>Teile importieren</translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+14"/>
         <source>Currently Open Documents</source>
         <translation>Aktuell geöffnete Dokumente</translation>
     </message>
