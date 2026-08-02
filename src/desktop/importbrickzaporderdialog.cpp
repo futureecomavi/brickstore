@@ -33,6 +33,10 @@ ImportBrickZapOrderDialog::ImportBrickZapOrderDialog(QWidget *parent)
 
     w_update->setProperty("iconScaling", true);
 
+    // the status may quote an error message from the server: BrickZap::Orders escapes those,
+    // so they have to be rendered as rich text to show up as the plain text they are
+    w_lastUpdated->setTextFormat(Qt::RichText);
+
     w_orders->header()->setStretchLastSection(false);
     auto proxyModel = new QSortFilterProxyModel(this);
     proxyModel->setSortCaseSensitivity(Qt::CaseInsensitive);

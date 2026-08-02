@@ -1,6 +1,8 @@
 // Copyright (C) 2004-2026 Robert Griebl
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include <algorithm>
+
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
@@ -17,17 +19,21 @@ namespace {
 
 // the seller API accepts up to 100 listings per page
 constexpr int listingsPerPage = 100;
+// safety net: the pagination has to end, even if the server keeps claiming there is more
+constexpr int maxInventoryPages = 10000;
 // the async import accepts far more, but smaller chunks give better progress feedback and
 // keep a single failure from taking down a whole store upload
 constexpr int importChunkSize = 1000;
 constexpr int importPollIntervalMs = 1500;
 constexpr int maxReportedImportErrors = 10;
 
+// all of these messages end up in rich text labels, so anything that comes off the network
+// has to be escaped: it is neither trusted nor markup
 QString errorMessageFromJson(const QByteArray &data, const QString &fallback)
 {
     const auto json = QJsonDocument::fromJson(data).object();
     const QString message = json.value(u"message"_qs).toString();
-    return message.isEmpty() ? fallback : message;
+    return message.isEmpty() ? fallback : message.toHtmlEscaped();
 }
 
 } // namespace
@@ -53,7 +59,7 @@ Store::Store(Core *core)
 
             if (!job->isCompleted()) {
                 finishUpdate(false, tr("Failed to download the store inventory")
-                                        + u": " + job->errorString());
+                                        + u": " + job->errorString().toHtmlEscaped());
             } else if (job->responseCode() != 200) {
                 finishUpdate(false, tr("Failed to download the store inventory") + u": "
                                         + errorMessageFromJson(job->data(),
@@ -74,7 +80,7 @@ Store::Store(Core *core)
 
             if (!job->isCompleted()) {
                 finishUpload(false, tr("Failed to upload the inventory to BrickZap")
-                                        + u": " + job->errorString());
+                                        + u": " + job->errorString().toHtmlEscaped());
             } else if ((job->responseCode() != 200) && (job->responseCode() != 202)) {
                 finishUpload(false, tr("Failed to upload the inventory to BrickZap") + u": "
                                         + errorMessageFromJson(job->data(),
@@ -145,6 +151,10 @@ void Store::cancelUpdate()
 
 void Store::requestInventoryPage(int page)
 {
+    // the page we asked for is authoritative: a server echoing a page number that never
+    // advances would otherwise keep this loop requesting the same page forever
+    m_currentPage = page;
+
     const QUrlQuery query {
         { u"page"_qs, QString::number(page) },
         { u"per_page"_qs, QString::number(listingsPerPage) },
@@ -175,8 +185,11 @@ bool Store::parseInventoryPage(const QByteArray &data, QString *message)
     }
 
     const auto meta = json.value(u"meta"_qs).toObject();
-    m_currentPage = meta.value(u"current_page"_qs).toInt(m_currentPage + 1);
-    m_lastPage = std::max(m_currentPage, meta.value(u"last_page"_qs).toInt(m_currentPage));
+    const int reportedLastPage = meta.value(u"last_page"_qs).toInt(m_currentPage);
+    // an empty page ends the pagination, no matter what the server claims
+    m_lastPage = listings.isEmpty()
+                     ? m_currentPage
+                     : std::max(m_currentPage, std::min(reportedLastPage, maxInventoryPages));
 
     emit updateProgress(m_currentPage, m_lastPage);
     return true;
@@ -314,7 +327,9 @@ void Store::pollImportJob()
     if ((m_uploadStatus != UpdateStatus::Updating) || m_importJobId.isEmpty())
         return;
 
-    m_uploadJob = m_core->createGet(u"/marketplace/seller/products/bulk-jobs/"_qs + m_importJobId);
+    // the job id comes off the network, so it has to be encoded before it becomes a path segment
+    const auto jobId = QString::fromLatin1(QUrl::toPercentEncoding(m_importJobId));
+    m_uploadJob = m_core->createGet(u"/marketplace/seller/products/bulk-jobs/"_qs + jobId);
     m_core->retrieveAuthenticated(m_uploadJob);
 }
 
@@ -333,7 +348,7 @@ void Store::importJobUpdated(const QByteArray &data)
 
     if (status == u"failed") {
         finishUpload(false, tr("The BrickZap import failed") + u": "
-                                + job.value(u"failure_message"_qs).toString());
+                                + job.value(u"failure_message"_qs).toString().toHtmlEscaped());
         return;
     }
 
@@ -347,10 +362,10 @@ void Store::importJobUpdated(const QByteArray &data)
     for (const auto &errorValue : errors) {
         // { "index": 0, "status": 422, "error": { "message": ..., "catalog_sku": ... } }
         const auto error = errorValue.toObject().value(u"error"_qs).toObject();
-        const QString message = error.value(u"message"_qs).toString();
-        const QString sku = error.value(u"bricklink_sku"_qs).toString().isEmpty()
-                                ? error.value(u"catalog_sku"_qs).toString()
-                                : error.value(u"bricklink_sku"_qs).toString();
+        const QString message = error.value(u"message"_qs).toString().toHtmlEscaped();
+        const QString sku = (error.value(u"bricklink_sku"_qs).toString().isEmpty()
+                                 ? error.value(u"catalog_sku"_qs).toString()
+                                 : error.value(u"bricklink_sku"_qs).toString()).toHtmlEscaped();
 
         if (!message.isEmpty() && (m_importErrors.size() < maxReportedImportErrors))
             m_importErrors.append(sku.isEmpty() ? message : (sku + u": " + message));

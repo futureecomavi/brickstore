@@ -56,8 +56,10 @@ build.ninja
 .ninja_log
 _deps/
 .qt/
-qm/
-imports/
+# anchored: these are build outputs in the top-level build dir, but they are also plausible
+# names for source directories further down (e.g. src/mobile/imports)
+/qm/
+/imports/
 locversions/
 lto.o/
 BrickStore_autogen/

@@ -34,8 +34,13 @@ public:
     ~Core() override;
 
     static QString defaultApiBaseUrl();
+    // trims whitespace and trailing slashes
+    static QString normalizeApiBaseUrl(const QString &baseUrl);
+    // an api server has to be https (or http on loopback), as it receives the client secret
+    static bool isValidApiBaseUrl(const QString &baseUrl);
 
     QString apiBaseUrl() const;
+    // an invalid url is rejected and replaced by defaultApiBaseUrl()
     void setApiBaseUrl(const QString &baseUrl);
 
     void setCredentials(const QString &clientId, const QString &clientSecret);

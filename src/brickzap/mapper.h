@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include <QtCore/QString>
 
 #include "bricklink/lot.h"
@@ -10,6 +12,7 @@
 
 QT_FORWARD_DECLARE_CLASS(QJsonArray)
 QT_FORWARD_DECLARE_CLASS(QJsonObject)
+QT_FORWARD_DECLARE_CLASS(QJsonValue)
 
 // Translates between BrickZap listings/order lines and BrickStore lots.
 //
@@ -24,8 +27,17 @@ namespace BrickZap::Mapper {
 // BrickZap money is an integer amount in minor units, matching the server-side
 // `round(price * 100)` conversion used by its own CSV/BSX importers.
 constexpr double moneyFactor = 100;
+// nothing sane is anywhere near this: it only exists to keep a hostile or broken response
+// from producing a value that cannot be represented
+constexpr double maxAmount = 1e15;
 
-double amountToPrice(qint64 amount);
+// clamping accessors for untrusted JSON numbers
+int toInt(const QJsonValue &value, int min = 0,
+          int max = (std::numeric_limits<int>::max)());
+double amountToPrice(const QJsonValue &amount);
+double priceFromMoney(const QJsonObject &obj, const QString &key,
+                      QString *currencyCode = nullptr);
+
 qint64 priceToAmount(double price);
 QJsonObject money(double price, const QString &currencyCode);
 

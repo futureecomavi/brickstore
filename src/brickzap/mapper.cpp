@@ -1,10 +1,13 @@
 // Copyright (C) 2004-2026 Robert Griebl
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QJsonValue>
 
 #include "bricklink/color.h"
 #include "bricklink/core.h"
@@ -146,6 +149,29 @@ QString stockroomToString(Stockroom stockroom)
     }
 }
 
+// JSON numbers are doubles and come straight off the network: narrowing one that is out of
+// range (or NaN) is undefined behavior, so everything is clamped on the way in.
+double clampedDouble(const QJsonValue &value, double min, double max)
+{
+    const double d = value.toDouble();
+    return std::isnan(d) ? 0 : std::clamp(d, min, max);
+}
+
+} // namespace
+
+
+namespace BrickZap::Mapper {
+
+int toInt(const QJsonValue &value, int min, int max)
+{
+    return int(clampedDouble(value, double(min), double(max)));
+}
+
+double amountToPrice(const QJsonValue &amount)
+{
+    return clampedDouble(amount, -maxAmount, maxAmount) / moneyFactor;
+}
+
 double priceFromMoney(const QJsonObject &obj, const QString &key, QString *currencyCode)
 {
     const auto money = obj.value(key).toObject();
@@ -157,17 +183,7 @@ double priceFromMoney(const QJsonObject &obj, const QString &key, QString *curre
         if (!currency.isEmpty() && currencyCode->isEmpty())
             *currencyCode = currency;
     }
-    return BrickZap::Mapper::amountToPrice(qint64(money.value(u"amount"_qs).toDouble()));
-}
-
-} // namespace
-
-
-namespace BrickZap::Mapper {
-
-double amountToPrice(qint64 amount)
-{
-    return double(amount) / moneyFactor;
+    return amountToPrice(money.value(u"amount"_qs));
 }
 
 qint64 priceToAmount(double price)
@@ -191,8 +207,7 @@ Lot *lotFromListing(const QJsonObject &listing, QString *currencyCode)
 
     auto *lot = new Lot(item, resolveColor(listing));
 
-    lot->setQuantity(int(listing.value(u"inventory"_qs).toObject()
-                             .value(u"quantity"_qs).toDouble()));
+    lot->setQuantity(toInt(listing.value(u"inventory"_qs).toObject().value(u"quantity"_qs)));
     lot->setPrice(priceFromMoney(listing, u"price"_qs, currencyCode));
     lot->setCondition(conditionFromString(listing.value(u"condition"_qs).toString()));
 
@@ -205,13 +220,13 @@ Lot *lotFromListing(const QJsonObject &listing, QString *currencyCode)
     lot->setRemarks(listing.value(u"condition_notes"_qs).toString());
     lot->setStockroom(stockroomFromString(listing.value(u"stockroom"_qs).toString()));
 
-    if (const int bulk = listing.value(u"bulk_quantity"_qs).toInt(); bulk > 1)
+    if (const int bulk = toInt(listing.value(u"bulk_quantity"_qs)); bulk > 1)
         lot->setBulkQuantity(bulk);
 
     const auto tiers = listing.value(u"tiers"_qs).toArray();
     for (int i = 0; (i < tiers.size()) && (i < 3); ++i) {
         const auto tier = tiers.at(i).toObject();
-        const int quantity = int(tier.value(u"quantity"_qs).toDouble());
+        const int quantity = toInt(tier.value(u"quantity"_qs));
         const double price = priceFromMoney(tier, u"price"_qs, nullptr);
 
         if ((quantity > 0) && !qFuzzyIsNull(price)) {
@@ -237,7 +252,7 @@ Lot *lotFromOrderItem(const QJsonObject &orderItem, QString *currencyCode)
     if (!lot)
         return nullptr;
 
-    lot->setQuantity(int(orderItem.value(u"quantity"_qs).toDouble()));
+    lot->setQuantity(toInt(orderItem.value(u"quantity"_qs)));
 
     const double realPrice = priceFromMoney(orderItem, u"real_price"_qs, currencyCode);
     if (!qFuzzyIsNull(realPrice))

@@ -1248,7 +1248,15 @@ void SettingsDialog::save()
     Config::inst()->setBrickZapClientId(w_bz_clientid->text().trimmed());
     Config::inst()->setBrickZapClientSecret(w_bz_clientsecret->text());
 
-    const QString bzBaseUrl = w_bz_baseurl->text().trimmed();
+    QString bzBaseUrl = BrickZap::Core::normalizeApiBaseUrl(w_bz_baseurl->text());
+    if (!bzBaseUrl.isEmpty() && !BrickZap::Core::isValidApiBaseUrl(bzBaseUrl)) {
+        // Core would silently fall back to the default, so tell the user why their input is gone
+        QMessageBox::warning(this, QCoreApplication::applicationName(),
+                             tr("The BrickZap API server has to be an <b>https</b> address: "
+                                "your client secret would not be sent securely otherwise.")
+                                 + u"<br><br>" + tr("Keeping the default server instead."));
+        bzBaseUrl.clear();
+    }
     Config::inst()->setBrickZapApiBaseUrl((bzBaseUrl == BrickZap::Core::defaultApiBaseUrl())
                                               ? QString { } : bzBaseUrl);
 

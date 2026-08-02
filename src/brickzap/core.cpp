@@ -1,6 +1,7 @@
 // Copyright (C) 2004-2026 Robert Griebl
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include <QHostAddress>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -75,6 +76,31 @@ QString Core::defaultApiBaseUrl()
     return u"https://api.brickzap.com"_qs;
 }
 
+QString Core::normalizeApiBaseUrl(const QString &baseUrl)
+{
+    QString url = baseUrl.trimmed();
+    while (url.endsWith(u'/'))
+        url.chop(1);
+    return url;
+}
+
+bool Core::isValidApiBaseUrl(const QString &baseUrl)
+{
+    const QUrl url(normalizeApiBaseUrl(baseUrl), QUrl::StrictMode);
+
+    if (!url.isValid() || url.host().isEmpty() || url.hasQuery() || url.hasFragment())
+        return false;
+
+    // the client secret and the bearer token are only safe on an encrypted connection. Note
+    // that a base url without a scheme would end up as plain http in TransferJob::create().
+    if (url.scheme() == u"https")
+        return true;
+
+    // ... with the usual exception for loopback, so that a local test server still works
+    return (url.scheme() == u"http")
+           && (QHostAddress(url.host()).isLoopback() || (url.host() == u"localhost"));
+}
+
 QString Core::apiBaseUrl() const
 {
     return m_apiBaseUrl;
@@ -82,11 +108,14 @@ QString Core::apiBaseUrl() const
 
 void Core::setApiBaseUrl(const QString &baseUrl)
 {
-    QString url = baseUrl.trimmed();
+    QString url = normalizeApiBaseUrl(baseUrl);
+
+    if (!url.isEmpty() && !isValidApiBaseUrl(url)) {
+        qCWarning(LogBrickZap) << "Ignoring the invalid or insecure BrickZap API server" << url;
+        url.clear();
+    }
     if (url.isEmpty())
         url = defaultApiBaseUrl();
-    while (url.endsWith(u'/'))
-        url.chop(1);
 
     if (url != m_apiBaseUrl) {
         m_apiBaseUrl = url;
@@ -151,6 +180,8 @@ static void prepareApiJob(TransferJob *job)
         return;
     job->setSendBrickLinkHeaders(false);
     job->setAcceptAllResponseCodes(true);
+    // never follow a redirect: the Authorization header would be replayed to the target host
+    job->setFollowRedirects(false);
     job->setRawHeader("Accept", "application/json");
 }
 
@@ -260,11 +291,13 @@ void Core::loginFinished(TransferJob *job)
         error = json.value(u"error_description"_qs).toString();
         if (error.isEmpty())
             error = json.value(u"message"_qs).toString();
-        if (error.isEmpty()) {
+        if (error.isEmpty())
             error = job->errorString();
-            if (error.isEmpty())
-                error = tr("HTTP error %1").arg(job->responseCode());
-        }
+        // the error ends up in a rich text message box, so whatever the server sent has to be
+        // escaped: it is neither trusted nor markup
+        error = error.toHtmlEscaped();
+        if (error.isEmpty())
+            error = tr("HTTP error %1").arg(job->responseCode());
     }
 
     m_authenticationError = error;

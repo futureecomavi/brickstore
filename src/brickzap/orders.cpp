@@ -1,6 +1,9 @@
 // Copyright (C) 2004-2026 Robert Griebl
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include <algorithm>
+#include <limits>
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,6 +21,8 @@ using namespace BrickLink;
 namespace {
 
 constexpr int ordersPerPage = 100;
+// safety net: the pagination has to end, even if the server keeps claiming there is more
+constexpr int maxOrderPages = 1000;
 
 QString humanizedStatus(const QString &status)
 {
@@ -54,10 +59,8 @@ Order *Order::fromJson(const QJsonObject &json, int *unresolvedItems)
         order->m_buyerName = customer.value(u"email"_qs).toString();
 
     const auto summary = json.value(u"summary"_qs).toObject();
-    const auto totalDue = summary.value(u"total_due"_qs).toObject();
-    order->m_total = Mapper::amountToPrice(qint64(totalDue.value(u"amount"_qs).toDouble()));
-    order->m_currencyCode = totalDue.value(u"currency"_qs).toString();
-    order->m_itemCount = summary.value(u"total_items_count"_qs).toInt();
+    order->m_total = Mapper::priceFromMoney(summary, u"total_due"_qs, &order->m_currencyCode);
+    order->m_itemCount = Mapper::toInt(summary.value(u"total_items_count"_qs));
 
     const auto items = json.value(u"items"_qs).toArray();
     for (const auto &item : items) {
@@ -67,8 +70,10 @@ Order *Order::fromJson(const QJsonObject &json, int *unresolvedItems)
             ++(*unresolvedItems);
     }
     if (!order->m_itemCount) {
+        qint64 itemCount = 0;
         for (const Lot *lot : std::as_const(order->m_lots))
-            order->m_itemCount += lot->quantity();
+            itemCount += lot->quantity();
+        order->m_itemCount = int(std::min<qint64>(itemCount, (std::numeric_limits<int>::max)()));
     }
     return order;
 }
@@ -99,10 +104,12 @@ Orders::Orders(Core *core)
         m_job = nullptr;
 
         if (!job->isCompleted()) {
-            finishUpdate(false, tr("Failed to download the orders") + u": " + job->errorString());
+            finishUpdate(false, tr("Failed to download the orders") + u": "
+                                    + job->errorString().toHtmlEscaped());
         } else if (job->responseCode() != 200) {
             const auto json = QJsonDocument::fromJson(job->data()).object();
-            QString error = json.value(u"message"_qs).toString();
+            // this ends up in a rich text label, so the server's message has to be escaped
+            QString error = json.value(u"message"_qs).toString().toHtmlEscaped();
             if (error.isEmpty())
                 error = tr("HTTP error %1").arg(job->responseCode());
             finishUpdate(false, tr("Failed to download the orders") + u": " + error);
@@ -230,6 +237,10 @@ void Orders::cancelUpdate()
 
 void Orders::requestOrderPage(int page)
 {
+    // the page we asked for is authoritative: a server echoing a page number that never
+    // advances would otherwise keep this loop requesting the same page forever
+    m_currentPage = page;
+
     const QUrlQuery query {
         { u"page"_qs, QString::number(page) },
         { u"perPage"_qs, QString::number(ordersPerPage) },
@@ -267,12 +278,13 @@ bool Orders::parseOrderPage(const QByteArray &data, bool *isLastPage, QString *m
     }
 
     const auto meta = json.value(u"meta"_qs).toObject();
-    m_currentPage = meta.value(u"current_page"_qs).toInt(m_currentPage + 1);
-    m_lastPage = std::max(m_currentPage, meta.value(u"last_page"_qs).toInt(m_currentPage));
+    const int reportedLastPage = meta.value(u"last_page"_qs).toInt(m_currentPage);
+    m_lastPage = std::max(m_currentPage, std::min(reportedLastPage, maxOrderPages));
 
     emit updateProgress(m_currentPage, m_lastPage);
 
-    *isLastPage = reachedCutoff || (m_currentPage >= m_lastPage);
+    // an empty page ends the pagination, no matter what the server claims
+    *isLastPage = reachedCutoff || orders.isEmpty() || (m_currentPage >= m_lastPage);
     return true;
 }
 

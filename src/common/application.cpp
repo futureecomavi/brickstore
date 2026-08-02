@@ -1145,6 +1145,7 @@ void Application::initBrickZap()
         if (error.isEmpty())
             return;
 
+        // note: `error` is already html-escaped by BrickZap::Core, as it may quote the server
         UIHelpers::warning(tr("Failed to authenticate with BrickZap.") + u"<br><b>" + error
                                + u"</b><br><br>" +
                            tr("Please check your API client id and secret: you can click "

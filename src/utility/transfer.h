@@ -54,6 +54,8 @@ public:
     void setOutputDevice(QIODevice *output);
     void setUserData(const QByteArray &tag, const QVariant &v) { m_userTag = tag; m_userData = v; }
     void setSessionToken(const QByteArray &token)              { m_sessionToken = token; }
+    // note: a job with custom headers is never redirected automatically, because the headers
+    // (and any credentials in them) would be replayed to the redirect target
     void setRawHeader(const QByteArray &name, const QByteArray &value);
     // the BrickLink client-id and session-token headers are only meaningful for BrickLink hosts
     void setSendBrickLinkHeaders(bool send)        { m_bricklink_headers = send; }

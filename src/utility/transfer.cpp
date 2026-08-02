@@ -19,6 +19,13 @@ static const char * const BL_SESSION_TOKEN_HEADER = "x-bl-session-token";
 static const char * const BL_CLIENT_ID_HEADER = "x-bl-tpa-client-id";
 static const char * const BL_CLIENT_ID_VALUE = "ca629c09-4d8c-45dc-8a6f-bfb2b058f720";
 
+// headers carrying credentials: their values must never end up in a log file
+static bool isSecretHeader(const QByteArray &name)
+{
+    return (name.compare("authorization", Qt::CaseInsensitive) == 0)
+           || (name.compare(BL_SESSION_TOKEN_HEADER, Qt::CaseInsensitive) == 0);
+}
+
 TransferJob::~TransferJob()
 {
     Q_ASSERT(!m_reply);
@@ -362,7 +369,11 @@ void TransferRetriever::schedule()
         req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false); // QTBUG-105043
         req.setAttribute(QNetworkRequest::HttpPipeliningAllowedAttribute, true);
         req.setHeader(QNetworkRequest::UserAgentHeader, m_transfer->userAgent());
-        if (!j->m_follow_redirects) {
+        // QNetworkAccessManager builds a redirected request by copying the original one, headers
+        // included, and NoLessSafeRedirectPolicy only guards against an https -> http downgrade.
+        // Custom headers may carry credentials, so a job using them is never followed
+        // automatically: it would replay them to whatever host the server points at.
+        if (!j->m_follow_redirects || !j->m_rawHeaders.isEmpty()) {
             req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                              QNetworkRequest::ManualRedirectPolicy);
         }
@@ -395,8 +406,12 @@ void TransferRetriever::schedule()
         qCInfo(LogTransfer) << (isget ? ">> GET" : ">> POST") << req.url();
         if (LogTransfer().isDebugEnabled()) {
             const auto headers = j->m_reply->request().rawHeaderList();
-            for (const auto &header : headers)
-                qCDebug(LogTransfer()) << header << ":" << j->m_reply->request().rawHeader(header);
+            for (const auto &header : headers) {
+                qCDebug(LogTransfer()) << header << ":"
+                                       << (isSecretHeader(header)
+                                               ? QByteArray("<redacted>")
+                                               : j->m_reply->request().rawHeader(header));
+            }
         }
 
         j->m_reply->setProperty("bsJob", QVariant::fromValue(j));
@@ -426,6 +441,31 @@ void TransferRetriever::readResponseBody(TransferJob *job)
         job->m_file->write(job->m_reply->readAll());
     else
         job->m_data = job->m_reply->readAll();
+}
+
+// Only a failure at the HTTP level comes with a complete, machine-readable body. Transport
+// failures (aborts, timeouts, dropped connections) can carry a response code as well, but the
+// body may have been truncated, so those must not be reported as completed.
+static bool isHttpStatusError(QNetworkReply::NetworkError error)
+{
+    switch (error) {
+    case QNetworkReply::ContentAccessDenied:
+    case QNetworkReply::ContentOperationNotPermittedError:
+    case QNetworkReply::ContentNotFoundError:
+    case QNetworkReply::AuthenticationRequiredError:
+    case QNetworkReply::ContentReSendError:
+    case QNetworkReply::ContentConflictError:
+    case QNetworkReply::ContentGoneError:
+    case QNetworkReply::UnknownContentError:
+    case QNetworkReply::ProtocolInvalidOperationError:
+    case QNetworkReply::InternalServerError:
+    case QNetworkReply::OperationNotImplementedError:
+    case QNetworkReply::ServiceUnavailableError:
+    case QNetworkReply::UnknownServerError:
+        return true;
+    default:
+        return false;
+    }
 }
 
 void TransferRetriever::downloadFinished(QNetworkReply *reply)
@@ -459,7 +499,7 @@ void TransferRetriever::downloadFinished(QNetworkReply *reply)
                 return;
             }
         }
-        if (j->m_accept_all_codes && j->m_respcode) {
+        if (j->m_accept_all_codes && j->m_respcode && isHttpStatusError(error)) {
             readResponseBody(j);
             j->setStatus(TransferJob::Completed);
         } else {
