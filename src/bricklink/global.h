@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <QMetaType>
 
 namespace BrickLink {
@@ -114,8 +116,10 @@ class PartColorCode;
 
 class Picture;
 class PictureCache;
+using PictureRef = std::shared_ptr<Picture>;
 class PriceGuide;
 class PriceGuideCache;
+using PriceGuideRef = std::shared_ptr<PriceGuide>;
 class Order;
 class Orders;
 class Cart;

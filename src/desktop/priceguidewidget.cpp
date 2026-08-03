@@ -78,7 +78,7 @@ private:
     friend class PriceGuideWidget;
 
     PriceGuideWidget *        m_widget;
-    BrickLink::PriceGuide *   m_pg = nullptr;
+    BrickLink::PriceGuideRef  m_pg;
     std::vector<cell>         m_cells;
     const cell *              m_cellUnderMouse = nullptr;
     QString                   m_ccode;
@@ -177,11 +177,7 @@ void PriceGuideWidget::languageChange()
     recalcLayout();
 }
 
-PriceGuideWidget::~PriceGuideWidget()
-{
-    if (d->m_pg)
-        d->m_pg->release();
-}
+PriceGuideWidget::~PriceGuideWidget() = default;
 
 void PriceGuideWidget::showBLCatalogInfo()
 {
@@ -209,35 +205,31 @@ QSize PriceGuideWidget::sizeHint() const
 void PriceGuideWidget::doUpdate()
 {
     if (d->m_pg)
-        d->m_pg->update(true);
+        BrickLink::core()->priceGuideCache()->updatePriceGuide(d->m_pg, true);
     updateNonStaticCells();
 }
 
 
-void PriceGuideWidget::gotUpdate(BrickLink::PriceGuide *pg)
+void PriceGuideWidget::gotUpdate(const BrickLink::PriceGuideRef &pg)
 {
     if (pg == d->m_pg)
         updateNonStaticCells();
 }
 
 
-void PriceGuideWidget::setPriceGuide(BrickLink::PriceGuide *pg)
+void PriceGuideWidget::setPriceGuide(BrickLink::PriceGuideRef pg)
 {
     if (pg == d->m_pg)
         return;
 
-    if (d->m_pg)
-        d->m_pg->release();
-    if (pg)
-        pg->addRef();
-    d->m_pg = pg;
+    d->m_pg = std::move(pg);
 
-    setContextMenuPolicy(pg ? Qt::ActionsContextMenu : Qt::NoContextMenu);
+    setContextMenuPolicy(d->m_pg ? Qt::ActionsContextMenu : Qt::NoContextMenu);
 
     updateNonStaticCells();
 }
 
-BrickLink::PriceGuide *PriceGuideWidget::priceGuide() const
+BrickLink::PriceGuideRef PriceGuideWidget::priceGuide() const
 {
     return d->m_pg;
 }

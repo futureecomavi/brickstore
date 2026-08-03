@@ -23,7 +23,7 @@ public:
     PriceGuideWidget(QWidget *parent = nullptr);
     ~PriceGuideWidget() override;
 
-    BrickLink::PriceGuide *priceGuide() const;
+    BrickLink::PriceGuideRef priceGuide() const;
 
     enum Layout {
         Normal,
@@ -37,7 +37,7 @@ public:
 
 public slots:
     void setLayout(PriceGuideWidget::Layout l);
-    void setPriceGuide(BrickLink::PriceGuide *pg);
+    void setPriceGuide(BrickLink::PriceGuideRef pg);
     void setCurrencyCode(const QString &code);
 
 signals:
@@ -59,7 +59,7 @@ protected:
 
 protected slots:
     void doUpdate();
-    void gotUpdate(BrickLink::PriceGuide *pg);
+    void gotUpdate(const BrickLink::PriceGuideRef &pg);
     void showBLCatalogInfo();
     void showBLPriceGuideInfo();
     void showBLLotsForSale();

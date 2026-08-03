@@ -53,8 +53,6 @@ RenderController::~RenderController()
     qDeleteAll(m_geos);
     delete m_lines;
     delete m_lineGeo;
-    if (m_part)
-        m_part->release();
 }
 
 QQuaternion RenderController::rotateArcBall(QPointF pressPos, QPointF mousePos,
@@ -136,8 +134,7 @@ void RenderController::setItemAndColor(const BrickLink::Item *item, const BrickL
         return;
 
     // new item
-    auto oldPart = m_part; // do not release immediately, as it might be re-used on color change
-    m_part = nullptr;
+    auto oldPart = std::move(m_part); // do not release immediately, as it might be re-used on color change
     m_item = item;
     m_color = color;
 
@@ -145,58 +142,42 @@ void RenderController::setItemAndColor(const BrickLink::Item *item, const BrickL
 
     if (item) {
         LDraw::library()->partFromBrickLinkId(item->id())
-            .then(this, [this, item, color](Part *part) {
-            if (!part)
+            .then(this, [this, item, color](const PartRef &part) {
+            if (!part || (item != m_item))
                 return;
-            if (item != m_item) {
-                part->release();
-                return;
-            }
 
-            if (m_part)
-                m_part->release();
             m_part = part;
-            part->addRef();
 
             emit canRenderChanged(canRender());
 
             QtConcurrent::run(&RenderController::calculateRenderData, this, part, color)
                 .then(this, [this, color, part](RenderData data) {
-                    part->release();
-                    if (part != m_part)
+                    if ((part != m_part) || (color != m_color))
                         return;
-                    if (color != m_color) {
-                        part->release();
-                        return;
-                    }
-                    applyRenderData(data);
+                    applyRenderData(std::move(data));
                 });
         });
     }
     applyRenderData({});
-
-    if (oldPart)
-        oldPart->release();
 }
 
 bool RenderController::canRender() const
 {
-    return (m_part);
+    return bool(m_part);
 }
 
-RenderController::RenderData RenderController::calculateRenderData(Part *part, const BrickLink::Color *color)
+RenderController::RenderData RenderController::calculateRenderData(const PartRef &part, const BrickLink::Color *color)
 {
     if (!part)
         return { };
-    part->addRef();
 
     QByteArray lineBuffer;
-    QList<QmlRenderGeometry *> geos;
+    std::vector<std::unique_ptr<QmlRenderGeometry>> geos;
     QVector3D center;
     float radius = 0;
     QHash<const BrickLink::Color *, QByteArray> surfaceBuffers;
 
-    fillVertexBuffers(part, color, color, QMatrix4x4(), false, surfaceBuffers, lineBuffer);
+    fillVertexBuffers(part.get(), color, color, QMatrix4x4(), false, surfaceBuffers, lineBuffer);
 
     for (auto it = surfaceBuffers.cbegin(); it != surfaceBuffers.cend(); ++it) {
         const QByteArray &data = it.value();
@@ -250,10 +231,10 @@ RenderController::RenderData RenderController::calculateRenderData(Part *part, c
         geo->setRadius(surfaceRadius);
         geo->setVertexData(data);
 
-        geos.append(geo.release());
+        geos.push_back(std::move(geo));
     }
 
-    for (auto *geo : std::as_const(geos)) {
+    for (const auto &geo : std::as_const(geos)) {
         // Merge all the bounding spheres. This is not perfect, but very, very close in most cases
         const auto geoCenter = geo->center();
         const auto geoRadius = geo->radius();
@@ -276,18 +257,26 @@ RenderController::RenderData RenderController::calculateRenderData(Part *part, c
         }
     }
 
-    part->release();
-    return { lineBuffer, geos, center, radius };
+    RenderData rd;
+    rd.lineBuffer = std::move(lineBuffer);
+    rd.geos = std::move(geos);
+    rd.center = center;
+    rd.radius = radius;
+    return rd;
 }
 
-void RenderController::applyRenderData(const RenderData &data)
+void RenderController::applyRenderData(RenderData &&data)
 {
     m_lines->clear();
     if (!data.lineBuffer.isEmpty())
         m_lines->setBuffer(data.lineBuffer);
     m_lines->update();
     qDeleteAll(m_geos);
-    m_geos = data.geos;
+    m_geos.clear();
+    m_geos.reserve(qsizetype(data.geos.size()));
+    for (auto &geo : data.geos)
+        m_geos.append(geo.release()); // m_geos is exposed to QML, so it has to stay a raw pointer list
+    data.geos.clear();
 
     emit surfacesChanged();
 
@@ -479,7 +468,7 @@ void RenderController::fillVertexBuffers(Part *part, const BrickLink::Color *mod
             const auto pe = static_cast<const PartElement *>(e);
             bool matrixReversed = (pe->matrix().determinant() < 0);
 
-            fillVertexBuffers(pe->part(), modelColor, mapColor(pe->color()), matrix * pe->matrix(),
+            fillVertexBuffers(pe->part().get(), modelColor, mapColor(pe->color()), matrix * pe->matrix(),
                               inverted ^ invertNext ^ matrixReversed, surfaceBuffers, lineBuffer);
             break;
         }

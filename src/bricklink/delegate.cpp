@@ -52,7 +52,7 @@ void ItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
                     color = item->defaultColor();
                 QImage image;
 
-                Picture *pic = core()->pictureCache()->picture(item, color);
+                PictureRef pic = core()->pictureCache()->picture(item, color);
                 if (pic && pic->isValid())
                     image = pic->image();
                 else
@@ -186,11 +186,11 @@ bool ToolTip::show(const Item *item, const Color *color, const Category *categor
     QString tt;
 
     if (item) {
-        if (Picture *pic = core()->pictureCache()->picture(item, nullptr, true)) {
+        if (PictureRef pic = core()->pictureCache()->picture(item, nullptr, true)) {
             m_tooltip_pic = ((pic->updateStatus() == UpdateStatus::Updating)
-                             || (pic->updateStatus() == UpdateStatus::Loading)) ? pic : nullptr;
+                             || (pic->updateStatus() == UpdateStatus::Loading)) ? pic : PictureRef { };
 
-            tt = createItemToolTip(pic->item(), pic);
+            tt = createItemToolTip(pic->item(), pic.get());
         }
     } else if (color) {
         tt = createColorToolTip(color);
@@ -205,7 +205,7 @@ bool ToolTip::show(const Item *item, const Color *color, const Category *categor
     return false;
 }
 
-QString ToolTip::createItemToolTip(const Item *item, Picture *pic) const
+QString ToolTip::createItemToolTip(const Item *item, const Picture *pic) const
 {
     static const QString str = uR"(<table class="tooltip_picture"><tr><td>%2</td><td align="right"><i>&nbsp;%4</i></td></tr><tr><td colspan="2"><b>%3</b></td></tr><tr><td colspan="2">%1</td>%5</table>)"_qs;
     static const QString img_left = uR"(<center><img src="data:image/png;base64,%1" width="%2" height="%3"/></center>)"_qs;
@@ -282,14 +282,14 @@ QString ToolTip::yearSpan(int from, int to)
     return yearStr;
 }
 
-void ToolTip::pictureUpdated(Picture *pic)
+void ToolTip::pictureUpdated(const PictureRef &pic)
 {
-    if (!pic || pic != m_tooltip_pic)
+    if (!pic || (pic != m_tooltip_pic))
         return;
 
     if ((pic->updateStatus() != UpdateStatus::Updating)
             && (pic->updateStatus() != UpdateStatus::Loading)) {
-        m_tooltip_pic = nullptr;
+        m_tooltip_pic.reset();
     }
 
     if (QToolTip::isVisible() && QToolTip::text().startsWith(uR"(<table class="tooltip_picture")")) {
@@ -297,7 +297,7 @@ void ToolTip::pictureUpdated(Picture *pic)
         for (QWidget *w : tlwidgets) {
             if (w->inherits("QTipLabel")) {
                 qobject_cast<QLabel *>(w)->clear();
-                qobject_cast<QLabel *>(w)->setText(createItemToolTip(pic->item(), pic));
+                qobject_cast<QLabel *>(w)->setText(createItemToolTip(pic->item(), pic.get()));
 
                 QRect r(w->pos(), w->sizeHint());
                 QRect desktop = w->window()->windowHandle()->screen()->availableGeometry();

@@ -168,14 +168,11 @@ set(BS_MCP_SERVER OFF)
 if (ANDROID OR IOS OR FORCE_MOBILE)
     set(BS_MOBILE ON)
     set(BS_TYPE "Mobile")
-    set(MIN_QT_VERSION 6.10.1)
+    set(MIN_QT_VERSION 6.11.1)
     add_compile_definitions(BS_MOBILE)
     set(QUICK_CONTROLS "QtQuick.Controls.Material")
     find_package(Qt6 CONFIG QUIET REQUIRED Qml Quick Quick3D QuickControls2Impl QuickDialogs2 QuickTemplates2 QuickDialogs2Utils Svg Multimedia MultimediaQuickPrivate)
-
-    if (${Qt6_VERSION} VERSION_GREATER_EQUAL "6.10.0")
-        find_package(Qt6 CONFIG QUIET REQUIRED QmlPrivate QuickPrivate QuickTemplates2Private QuickDialogs2Private QuickControls2ImplPrivate QuickDialogs2UtilsPrivate)
-    endif()
+    find_package(Qt6 CONFIG QUIET REQUIRED QmlPrivate QuickPrivate QuickTemplates2Private QuickDialogs2Private QuickControls2ImplPrivate QuickDialogs2UtilsPrivate)
 
 elseif (BACKEND_ONLY)
     set(BS_BACKEND ON)
@@ -331,6 +328,7 @@ qt_add_resources(${PROJECT_NAME} brickstore_qrc PREFIX / FILES
     ${ICONS_QRC}
     ${FLAGS_QRC}
     extensions/classic-print-script.bs.qml
+    extensions/lego-pickabrick-export.bs.qml
 )
 
 #get_cmake_property(_variableNames VARIABLES)
@@ -664,10 +662,17 @@ elseif (ANDROID)
         DEPENDS apk
     )
 
-    string(TOLOWER "${CMAKE_BUILD_TYPE}" lower_build_type)
+    # gradle only knows "release" and "debug": androiddeployqt maps every release-ish
+    # config onto the former, so we cannot just lowercase CMAKE_BUILD_TYPE here
+    set(GRADLE_RELEASE_CONFIGS Release RelWithDebInfo MinSizeRel)
+    if (CMAKE_BUILD_TYPE IN_LIST GRADLE_RELEASE_CONFIGS)
+        set(GRADLE_VARIANT "release")
+    else()
+        set(GRADLE_VARIANT "debug")
+    endif()
 
     add_custom_target(final-aab
-        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/android-build/build/outputs/bundle/${lower_build_type}/android-build-release.aab"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/android-build/build/outputs/bundle/${GRADLE_VARIANT}/android-build-${GRADLE_VARIANT}.aab"
                                            "${CMAKE_BINARY_DIR}/${PROJECT_NAME}-${VERSION}.aab"
         COMMENT "Moving aab to final name and location..."
         DEPENDS aab

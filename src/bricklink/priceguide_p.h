@@ -12,7 +12,7 @@
 #include <QtCore/QVector>
 #include <QtSql/QSqlDatabase>
 
-#include "utility/refcache.h"
+#include "utility/cache.h"
 #include "global.h"
 #include "priceguide.h"
 
@@ -35,13 +35,13 @@ public:
 
     virtual QVector<VatType> supportedVatTypes() const = 0;
 
-    virtual void fetch(PriceGuide *pg, bool highPriority) = 0;
-    virtual void cancel(PriceGuide *pg) = 0;
+    virtual void fetch(const PriceGuideRef &pg, bool highPriority) = 0;
+    virtual void cancel(const PriceGuideRef &pg) = 0;
     virtual void cancelAll() = 0;
 
 signals:
-    void finished(BrickLink::PriceGuide *pg, const BrickLink::PriceGuide::Data &data);
-    void failed(BrickLink::PriceGuide *pg, const QString &errorString);
+    void finished(const BrickLink::PriceGuideRef &pg, const BrickLink::PriceGuide::Data &data);
+    void failed(const BrickLink::PriceGuideRef &pg, const QString &errorString);
 };
 
 class SingleHTMLScrapePGRetriever : public PriceGuideRetrieverInterface
@@ -56,12 +56,12 @@ public:
 
     QVector<VatType> supportedVatTypes() const override;
 
-    void fetch(PriceGuide *pg, bool highPriority) override;
-    void cancel(PriceGuide *pg) override;
+    void fetch(const PriceGuideRef &pg, bool highPriority) override;
+    void cancel(const PriceGuideRef &pg) override;
     void cancelAll() override;
 
 private:
-    void transferJobFinished(TransferJob *j, PriceGuide *pg);
+    void transferJobFinished(TransferJob *j, const PriceGuideRef &pg);
     static bool parseHtml(const QByteArray &ba, PriceGuide::Data &result);
 
     Core *m_core = nullptr;
@@ -81,8 +81,8 @@ public:
 
     QVector<VatType> supportedVatTypes() const override;
 
-    void fetch(PriceGuide *pg, bool highPriority) override;
-    void cancel(PriceGuide *pg) override;
+    void fetch(const PriceGuideRef &pg, bool highPriority) override;
+    void cancel(const PriceGuideRef &pg) override;
     void cancelAll() override;
 
     void setApiKey(const QString &key);
@@ -96,13 +96,13 @@ private:
     static QString itemTypeApiId(const ItemType *itt);
 
     Core *m_core = nullptr;
-    QVector<PriceGuide *> m_currentBatch;
+    QVector<PriceGuideRef> m_currentBatch;
     TransferJob *m_currentJob = nullptr;
-    QVector<std::pair<PriceGuide *, QElapsedTimer>> m_nextBatch;
+    QVector<std::pair<PriceGuideRef, QElapsedTimer>> m_nextBatch;
     VatType m_nextBatchVatType = VatType::Excluded;
     qsizetype m_nextBatchPrioritySize = 0;
     QTimer *m_batchTimer;
-    QVector<std::pair<PriceGuide *, QElapsedTimer>> m_wrongVatTypeQueue;
+    QVector<std::pair<PriceGuideRef, QElapsedTimer>> m_wrongVatTypeQueue;
     qsizetype m_wrongVatTypeQueuePrioritySize = 0;
     QString m_apiKey;
 };
@@ -128,15 +128,15 @@ public:
         SaveAccessTimeOnly,
     };
 
-    QVector<std::pair<PriceGuide *, LoadType>> m_loadQueue;
-    QVector<std::pair<PriceGuide *, SaveType>> m_saveQueue;
+    QVector<std::pair<PriceGuideRef, LoadType>> m_loadQueue;
+    QVector<std::pair<PriceGuideRef, SaveType>> m_saveQueue;
     QString m_dbName;
     QSqlDatabase m_db;
     QVector<QThread *> m_threads;
 
     int m_updateInterval = 0;
     QMap<QString, VatType> m_vatType;  // key: retriever->id()
-    RefCache<quint64, PriceGuide> m_cache;
+    Cache<quint64, PriceGuide> m_cache;
     Core *m_core;
     PriceGuideCache *q;
     int m_cacheStatId = -1;
@@ -144,16 +144,16 @@ public:
     int m_savesStatId = -1;
 
     static quint64 cacheKey(const Item *item, const Color *color, VatType vatType);
-    static QString databaseTag(PriceGuide *pg, PriceGuideRetrieverInterface *retriever);
-    bool isUpdateNeeded(PriceGuide *pg) const;
+    static QString databaseTag(const PriceGuide *pg, PriceGuideRetrieverInterface *retriever);
+    bool isUpdateNeeded(const PriceGuide *pg) const;
 
-    void load(PriceGuide *pg, bool highPriority);
-    void save(PriceGuide *pg);
+    void load(PriceGuideRef pg, bool highPriority);
+    void save(PriceGuideRef pg);
     void loadThread(QString dbName, int index);
     void saveThread(QString dbName, int index);
 
-    void retrieveFinished(PriceGuide *pg, const PriceGuide::Data &data);
-    void retrieveFailed(PriceGuide *pg, const QString &errorString);
+    void retrieveFinished(const PriceGuideRef &pg, const PriceGuide::Data &data);
+    void retrieveFailed(const PriceGuideRef &pg, const QString &errorString);
 };
 
 } // namespace BrickLink

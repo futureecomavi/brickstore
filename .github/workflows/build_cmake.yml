@@ -93,7 +93,7 @@ jobs:
 
         - name: "Ubuntu Snap"
           artifact: "Linux-Snap"
-          runs-on: ubuntu-22.04
+          runs-on: ubuntu-24.04
           os: linux
           snap: true
           qt_tools: tools_opensslv3_src
@@ -157,7 +157,7 @@ jobs:
           qt_target: 'android'
           qt_version: '6.11.1'
           qt_arch: 'android_x86_64'
-          qt_extra_archs: 'android_arm64_v8a android_armv7 android_x86'
+          qt_extra_archs: 'android_arm64_v8a android_armv7'
           cmake_extra_config: '-DSENTRY=ON'
 
         - name: "iOS"
@@ -385,13 +385,14 @@ jobs:
         chmod +x .linuxdeploy/linuxdeploy-x86_64.AppImage
         wget  -P .linuxdeploy -N "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage"
         chmod +x .linuxdeploy/linuxdeploy-plugin-qt-x86_64.AppImage
+        # the libva libs have to be the versioned ones: Qt's ffmpeg stubs dlopen them by soname
         env VERSION=`cat VERSION_NUMBER` QML_SOURCES_PATHS=src EXTRA_QT_PLUGINS=svg \
             "QMAKE=${Qt6_DIR}/bin/qmake" "LD_LIBRARY_PATH=${Qt6_DIR}/lib" \
             .linuxdeploy/linuxdeploy-x86_64.AppImage \
                 --appdir=build/BrickStore-Install \
-                -l /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libva.so \
-                -l /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libva-drm.so \
-                -l /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libva-x11.so \
+                -l /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libva.so.2 \
+                -l /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libva-drm.so.2 \
+                -l /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libva-x11.so.2 \
                 --plugin qt \
                 --output appimage
       shell: bash
@@ -412,8 +413,10 @@ jobs:
         chmod +x .cqtdeployer/bin/CQtDeployer
         chmod +x .cqtdeployer/CQtDeployer.sh
         cd build
+        # -libDir is what gets Qt's bundled FFmpeg libs deployed for the QtMultimedia backend
         ../.cqtdeployer/CQtDeployer.sh \
             -bin bin/brickstore -qmlDir ../src \
+            -libDir "${Qt6_DIR}/lib" \
             -qmake "${Qt6_DIR}/bin/qmake" \
             -targetDir BrickStore-Install/usr -libOut lib -binOut bin \
             -disableRunScript brickstore -disableShortCut brickstore
@@ -485,7 +488,7 @@ jobs:
         export QT_ANDROID_KEYSTORE_STORE_PASS="${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}"
         export QT_ANDROID_KEYSTORE_KEY_PASS="${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}"
 
-        ${Qt6_DIR}/bin/qt-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        ${Qt6_DIR}/bin/qt-cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -D "QT_HOST_PATH=$(readlink -f $Qt6_DIR/../gcc_64)" \
             -D "QT_ANDROID_TARGET_SDK_VERSION=35" \
             -D "QT_ANDROID_BUILD_ALL_ABIS=TRUE" \
@@ -495,11 +498,11 @@ jobs:
             -D "QT_ANDROID_MULTI_ABI_FORWARD_VARS=SENTRY" \
             ${{ matrix.config.cmake_extra_config }} -B build -S .
         echo "Creating AAB"
-        cmake --build build --config Release --parallel --target final-aab --verbose
+        cmake --build build --config RelWithDebInfo --parallel --target final-aab --verbose
         echo "Creating ARM64 APK"
-        cmake --build build/android_abi_builds/arm64-v8a --config Release --parallel --target final-apk --verbose
+        cmake --build build/android_abi_builds/arm64-v8a --config RelWithDebInfo --parallel --target final-apk --verbose
         echo "Creating ARM APK"
-        cmake --build build/android_abi_builds/armeabi-v7a --config Release --parallel --target final-apk --verbose
+        cmake --build build/android_abi_builds/armeabi-v7a --config RelWithDebInfo --parallel --target final-apk --verbose
 
         echo VERSION_NUMBER="`cat VERSION_NUMBER`" >> $GITHUB_ENV
       shell: bash
@@ -536,6 +539,21 @@ jobs:
         tracks: beta
         releaseName: "${{ env.VERSION_NUMBER }} (build: ${{ env.BUILD_NUMBER }})"
 
+    - name: Upload Android debug info to sentry.io
+      if: (matrix.config.os == 'android')
+      run: |
+        curl -L --output sentry-cli "https://github.com/getsentry/sentry-cli/releases/latest/download/sentry-cli-Linux-x86_64"
+        chmod +x sentry-cli
+        # The .so only carries the symbol table: enable_separate_debug_info() moves the
+        # DWARF into the BrickStore.debug companion, so both are needed.
+        # Qt's own Android libraries are shipped stripped and without companion debug files.
+        ./sentry-cli --auth-token ${{ secrets.SENTRY_AUTH_TOKEN }} upload-dif \
+            --org brickstore --project brickstore \
+            build/libBrickStore_*.so build/BrickStore.debug \
+            build/android_abi_builds/*/libBrickStore_*.so \
+            build/android_abi_builds/*/BrickStore.debug
+      shell: bash
+
     # Build for macOS
     #################################################
 
@@ -564,7 +582,7 @@ jobs:
     - name: Build for macOS
       if: (matrix.config.os == 'macos')
       run: |
-        ${Qt6_DIR}/bin/qt-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        ${Qt6_DIR}/bin/qt-cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -D "MACOS_SIGNING_IDENTITY=${{ secrets.MACOS_SIGNING_IDENTITY }}" \
             ${{ matrix.config.cmake_extra_config }} -B build -S .
         cmake --build build --config RelWithDebInfo --parallel --target dmg --verbose
@@ -738,8 +756,7 @@ jobs:
     - name: Promote Snapcraft build to stable
       env:
         SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.UBUNTU_SNAP_LOGIN }}
-        SNAPCRAFT_HAS_TTY: "true"
       run: |
         sudo DEBIAN_FRONTEND=noninteractive apt -y install snapcraft
-        (yes || true) | snapcraft promote --from-channel edge --to-channel stable brickstore
+        snapcraft promote --yes --from-channel edge --to-channel stable brickstore
       shell: bash

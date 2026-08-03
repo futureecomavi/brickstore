@@ -1376,7 +1376,8 @@ void DocumentModel::changeCurrencyDirect(const QString &ccode, double crate, dou
     emit currencyCodeChanged(currencyCode());
 }
 
-void DocumentModel::emitDataChanged(const QModelIndex &tl, const QModelIndex &br)
+void DocumentModel::emitDataChanged(const QModelIndex &tl, const QModelIndex &br,
+                                    const QList<int> &roles)
 {
     if (!m_delayedEmitOfDataChanged) {
         m_delayedEmitOfDataChanged = new QTimer(this);
@@ -1399,11 +1400,26 @@ void DocumentModel::emitDataChanged(const QModelIndex &tl, const QModelIndex &br
                 emit dataChanged(index(m_nextDataChangedEmit.first.y(),
                                        m_nextDataChangedEmit.first.x()),
                                  index(m_nextDataChangedEmit.second.y(),
-                                       m_nextDataChangedEmit.second.x()));
+                                       m_nextDataChangedEmit.second.x()),
+                                 m_nextDataChangedRoles);
             }
 
             resetNext(m_nextDataChangedEmit);
+            m_nextDataChangedRoles.clear();
         });
+    }
+
+    if (!m_delayedEmitOfDataChanged->isActive()) {
+        m_nextDataChangedRoles = roles;
+    } else if (!m_nextDataChangedRoles.isEmpty()) {
+        if (roles.isEmpty()) {
+            m_nextDataChangedRoles.clear();
+        } else {
+            for (const int role : roles) {
+                if (!m_nextDataChangedRoles.contains(role))
+                    m_nextDataChangedRoles.append(role);
+            }
+        }
     }
 
     QModelIndex xtl = tl.isValid() ? tl : index(0, 0);
@@ -2009,7 +2025,10 @@ void DocumentModel::initializeColumns()
           .filterable = false,
           .title = QT_TR_NOOP("Image"),
           .dataFn = [&](const Lot *lot) {
-              return QVariant::fromValue(BrickLink::core()->pictureCache()->picture(lot->item(), lot->color()));
+              // Not the picture itself: a reference is of no use to a data role, and a raw pointer
+              // would not keep it alive. Whoever renders this column asks the cache directly.
+              auto pic = BrickLink::core()->pictureCache()->picture(lot->item(), lot->color());
+              return QVariant::fromValue(pic ? pic->image() : QImage { });
           },
           .setDataFn = [&](Lot *lot, const QVariant &v) { lot->setItem(v.value<const BrickLink::Item *>()); },
           .compareFn = [&](const Lot *l1, const Lot *l2) {
@@ -2374,7 +2393,7 @@ void DocumentModel::initializeColumns()
       });
 }
 
-void DocumentModel::pictureUpdated(BrickLink::Picture *pic)
+void DocumentModel::pictureUpdated(const BrickLink::PictureRef &pic)
 {
     if (!pic || !pic->item())
         return;
@@ -2382,7 +2401,9 @@ void DocumentModel::pictureUpdated(BrickLink::Picture *pic)
     for (const auto *lot : std::as_const(m_lots)) {
         if ((pic->item() == lot->item()) && (pic->color() == lot->color())) {
             QModelIndex idx = index(const_cast<Lot *>(lot), Picture);
-            emitDataChanged(idx, idx);
+            // the explicit role keeps QQuickTableView from rebuilding its viewport: see
+            // emitDataChanged() in the header
+            emitDataChanged(idx, idx, { Qt::DecorationRole });
         }
     }
 }

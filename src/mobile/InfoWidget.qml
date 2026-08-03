@@ -16,7 +16,8 @@ Control {
     property bool is3D: true         // current UI state
     property bool canRender3D: true  // current LDraw state
     property bool prefer3D: true     // User preference
-    property BL.Picture picture
+    // this object owns the reference: dropping it is what releases the picture
+    property BL.Picture picture: null
     property bool isUpdating: (picture && (picture.updateStatus === BL.BrickLink.UpdateStatus.Updating))
 
     BS.ExtraConfig {
@@ -29,21 +30,10 @@ Control {
     onColorChanged: { Qt.callLater(updateInfo) }
 
     function updateInfo() {
-        if (picture)
-            picture.release()
-        picture = null
-
         picture = BL.BrickLink.picture(root.item, root.color, true)
-        if (picture)
-            picture.addRef()
 
         info3D.renderController.setItemAndColor(root.item, root.color)
         root.is3D = prefer3D && info3D.renderController.canRender
-    }
-
-    Component.onDestruction: {
-        if (picture)
-            picture.release()
     }
 
     StackLayout {
@@ -51,11 +41,10 @@ Control {
         clip: true
         currentIndex: root.is3D ? 1 : 0
 
-        QImageItem {
+        PictureImage {
             id: infoImage
-            fillColor: "white"
-            image: root.picture && root.picture.isValid ? root.picture.image : noImage
-            property var noImage: BL.BrickLink.noImage(0, 0)
+            color: "white"
+            picture: root.picture
 
             Text {
                 id: infoNoImage

@@ -19,15 +19,13 @@
 #include "common/undo.h"
 #include "common/eventfilter.h"
 #include "mobileapplication.h"
+#include "bricklink/qmlapi.h"
 #include "mobileuihelpers.h"
 #include "mobilefileopenhandler.h"
 #include "common/qmlapi.h"
+#include "qmlimageprovider.h"
 
 #if defined(Q_OS_ANDROID)
-#  include <android/api-level.h>
-#  if QT_VERSION < QT_VERSION_CHECK(6, 7, 0)
-#    include <qpa/qwindowsysteminterface.h>
-#  endif
 
 static struct DisableA11YOnAndroid  // clazy:exclude=non-pod-global-static
 {
@@ -64,25 +62,11 @@ void MobileApplication::init()
 
     MobileFileOpenHandler::create();
 
-#if (QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)) && (QT_VERSION <= QT_VERSION_CHECK(6, 7, 0))
-    // the scrolling speed is broken in Qt 6.6+
-    auto dpr = qApp->primaryScreen()->devicePixelRatio();
-    qInfo() << "Fixing QML Flickable speed with a factor of" << dpr;
-    new EventFilter(qApp, { QEvent::ChildAdded }, [dpr](QObject *o, QEvent *) {
-        static QSet<QObject *> seen;
-        if (auto flickable = qobject_cast<QQuickFlickable *>(o)) {
-            if (!seen.contains(o)) {
-                seen.insert(o);
-                connect(o, &QObject::destroyed, qApp, [](QObject *dead) { seen.remove(dead); });
-                flickable->setMaximumFlickVelocity(flickable->maximumFlickVelocity() * dpr);
-            }
-        }
-        return EventFilter::ContinueEventProcessing;
-    });
-#endif
-
     // add all relevant QML modules here
     extern void qml_register_types_Mobile(); qml_register_types_Mobile();
+
+    m_engine->addImageProvider(QString::fromLatin1(BrickLink::QmlPicture::imageProviderId),
+                               new QmlImageProvider);
 
     MobileUIHelpers::create(m_engine);
 

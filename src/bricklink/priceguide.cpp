@@ -13,6 +13,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QThread>
 #include <QtNetwork/QNetworkInformation>
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlQuery>
@@ -33,17 +34,42 @@ Q_DECLARE_LOGGING_CATEGORY(LogSql)
 
 namespace BrickLink {
 
-PriceGuideCache *PriceGuide::s_cache = nullptr;
+// A price guide can be handed out to a worker thread, which may end up dropping the last reference
+// to it. Destroying a QObject outside of its own thread is not allowed, so hop over if needed.
+static void deletePriceGuide(PriceGuide *pg)
+{
+    if (pg->thread() == QThread::currentThread())
+        delete pg;
+    else
+        pg->deleteLater();
+}
 
 PriceGuide::PriceGuide(Private, const Item *item, const Color *color, VatType vatType)
     : m_item(item)
     , m_color(color)
+    , m_generation(Database::generation())
     , m_vatType(vatType)
 { }
 
+bool PriceGuide::isStale() const
+{
+    return (m_generation != Database::generation());
+}
+
+const Item *PriceGuide::item() const
+{
+    return isStale() ? nullptr : m_item;
+}
+
+const Color *PriceGuide::color() const
+{
+    return isStale() ? nullptr : m_color;
+}
+
 PriceGuide::~PriceGuide()
 {
-    cancelUpdate();
+    // No cancelUpdate() here: while an update is queued or running, the retriever owns a reference
+    // to this price guide, so we could not be destroyed at all.
 }
 
 void PriceGuide::setIsValid(bool valid)
@@ -70,19 +96,6 @@ void PriceGuide::setLastUpdated(const QDateTime &dt)
     }
 }
 
-void PriceGuide::update(bool highPriority)
-{
-    if (s_cache)
-        s_cache->updatePriceGuide(this, highPriority);
-}
-
-void PriceGuide::cancelUpdate()
-{
-    if (s_cache)
-        s_cache->cancelPriceGuideUpdate(this);
-}
-
-
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -105,7 +118,7 @@ SingleHTMLScrapePGRetriever::SingleHTMLScrapePGRetriever(Core *core)
     connect(m_core, &Core::transferFinished,
             this, [this](TransferJob *job) {
         if (job) {
-            if (auto *pg = job->userData("htmlPriceGuide").value<PriceGuide *>())
+            if (auto pg = job->userData("htmlPriceGuide").value<PriceGuideRef>())
                 transferJobFinished(job, pg);
         }
     });
@@ -117,12 +130,10 @@ QVector<VatType> SingleHTMLScrapePGRetriever::supportedVatTypes() const
     return all;
 }
 
-void SingleHTMLScrapePGRetriever::fetch(PriceGuide *pg, bool highPriority)
+void SingleHTMLScrapePGRetriever::fetch(const PriceGuideRef &pg, bool highPriority)
 {
-    if (m_jobs.contains(pg))
+    if (m_jobs.contains(pg.get()) || !pg->item() || !pg->color())
         return;
-
-    pg->addRef();
 
     auto job = TransferJob::get(u"https://www.bricklink.com/priceGuideSummary.asp"_qs,
                                 {
@@ -136,15 +147,16 @@ void SingleHTMLScrapePGRetriever::fetch(PriceGuide *pg, bool highPriority)
                                     { u"uncache"_qs,     QString::number(QDateTime::currentMSecsSinceEpoch()) },
                                  });
     job->setMaximumRetries(2);
+    // the job owns a reference, so the price guide cannot go away while it is being fetched
     job->setUserData("htmlPriceGuide", QVariant::fromValue(pg));
-    m_jobs.insert(pg, job);
+    m_jobs.insert(pg.get(), job);
 
     m_core->retrieve(job, highPriority);
 }
 
-void SingleHTMLScrapePGRetriever::cancel(PriceGuide *pg)
+void SingleHTMLScrapePGRetriever::cancel(const PriceGuideRef &pg)
 {
-    if (auto job = m_jobs.value(pg))
+    if (auto job = m_jobs.value(pg.get()))
         job->abort();
 }
 
@@ -154,9 +166,9 @@ void SingleHTMLScrapePGRetriever::cancelAll()
         job->abort();
 }
 
-void SingleHTMLScrapePGRetriever::transferJobFinished(TransferJob *j, PriceGuide *pg)
+void SingleHTMLScrapePGRetriever::transferJobFinished(TransferJob *j, const PriceGuideRef &pg)
 {
-    auto *job = m_jobs.take(pg);
+    auto *job = m_jobs.take(pg.get());
     Q_ASSERT(job == j);
 
     try {
@@ -172,9 +184,10 @@ void SingleHTMLScrapePGRetriever::transferJobFinished(TransferJob *j, PriceGuide
             throw Exception("%1 (%2)").arg(job->errorString()).arg(job->responseCode());
         }
     } catch (const Exception &e) {
-        emit failed(pg, u"PG download for " + QString::fromLatin1(pg->item()->id()) + u" failed: " + e.errorString());
+        emit failed(pg, u"PG download for " + (pg->item() ? QString::fromLatin1(pg->item()->id())
+                                                         : u"<stale>"_qs) + u" failed: " + e.errorString());
     }
-    pg->release();
+    // no release needed: the job's user data owned the reference
 }
 
 bool SingleHTMLScrapePGRetriever::parseHtml(const QByteArray &ba, PriceGuide::Data &result)
@@ -281,10 +294,13 @@ QVector<VatType> BatchedAffiliateAPIPGRetriever::supportedVatTypes() const
     return all;
 }
 
-void BatchedAffiliateAPIPGRetriever::fetch(PriceGuide *pg, bool highPriority)
+void BatchedAffiliateAPIPGRetriever::fetch(const PriceGuideRef &pg, bool highPriority)
 {
     // check if the pg is currently being fetched
     if (m_currentBatch.contains(pg))
+        return;
+
+    if (!pg->item() || !pg->color())
         return;
 
     bool wrongVatType = (pg->vatType() != m_nextBatchVatType);
@@ -292,7 +308,7 @@ void BatchedAffiliateAPIPGRetriever::fetch(PriceGuide *pg, bool highPriority)
     auto &prioSize = wrongVatType ? m_wrongVatTypeQueuePrioritySize : m_nextBatchPrioritySize;
 
     // check if the pg is already scheduled for the next batch and if we need to up the priority
-    auto it = std::find_if(queue.cbegin(), queue.cend(), [pg](const auto &pair) {
+    auto it = std::find_if(queue.cbegin(), queue.cend(), [&pg](const auto &pair) {
         return (pair.first == pg);
     });
     if (it != queue.cend()) {
@@ -301,8 +317,6 @@ void BatchedAffiliateAPIPGRetriever::fetch(PriceGuide *pg, bool highPriority)
             queue.move(index, prioSize++);
         return;
     }
-
-    pg->addRef();
 
     QElapsedTimer now;
     now.start();
@@ -315,7 +329,7 @@ void BatchedAffiliateAPIPGRetriever::fetch(PriceGuide *pg, bool highPriority)
     check();
 }
 
-void BatchedAffiliateAPIPGRetriever::cancel(PriceGuide *pg)
+void BatchedAffiliateAPIPGRetriever::cancel(const PriceGuideRef &pg)
 {
     if (m_currentBatch.contains(pg))
         m_currentJob->abort();
@@ -324,7 +338,7 @@ void BatchedAffiliateAPIPGRetriever::cancel(PriceGuide *pg)
     auto &queue = wrongVatType ? m_wrongVatTypeQueue : m_nextBatch;
     auto &prioSize = wrongVatType ? m_wrongVatTypeQueuePrioritySize : m_nextBatchPrioritySize;
 
-    auto it = std::find_if(queue.cbegin(), queue.cend(), [pg](const auto &pair) {
+    auto it = std::find_if(queue.cbegin(), queue.cend(), [&pg](const auto &pair) {
         return (pair.first == pg);
     });
     if (it != queue.cend()) {
@@ -334,7 +348,6 @@ void BatchedAffiliateAPIPGRetriever::cancel(PriceGuide *pg)
         queue.removeAt(index);
 
         emit failed(pg, u"aborted"_qs);
-        pg->release();
     }
 }
 
@@ -350,10 +363,8 @@ void BatchedAffiliateAPIPGRetriever::cancelAll()
     m_wrongVatTypeQueuePrioritySize = 0;
     m_nextBatchPrioritySize = 0;
 
-    for (const auto &pair : list) {
+    for (const auto &pair : list)
         emit failed(pair.first, u"aborted"_qs);
-        pair.first->release();
-    }
 }
 
 void BatchedAffiliateAPIPGRetriever::setApiKey(const QString &key)
@@ -378,13 +389,13 @@ void BatchedAffiliateAPIPGRetriever::check()
                         ++highPrioMoved;
                     m_nextBatch.emplace_back(pg, age);
                     // just tag now, as we can't remove directly: this would mess up the indices
-                    m_wrongVatTypeQueue[i].first = nullptr;
+                    m_wrongVatTypeQueue[i].first.reset();
                 }
             }
             m_nextBatchPrioritySize = highPrioMoved;
             m_wrongVatTypeQueuePrioritySize -= highPrioMoved;
             // finally remove all the tagged entries
-            m_wrongVatTypeQueue.removeIf([](const auto &pair) { return pair.first == nullptr; });
+            m_wrongVatTypeQueue.removeIf([](const auto &pair) { return !pair.first; });
         }
 
         qsizetype nextSize = m_nextBatch.size();
@@ -398,7 +409,9 @@ void BatchedAffiliateAPIPGRetriever::check()
             QJsonArray array;
 
             for (auto i = 0; i < batchSize; ++i) {
-                auto *pg = m_nextBatch.at(i).first;
+                const auto &pg = m_nextBatch.at(i).first;
+                if (!pg->item() || !pg->color()) // went stale while queued
+                    continue;
                 const QString itemId = QString::fromLatin1(pg->item()->id());
                 const QString typeId = itemTypeApiId(pg->item()->itemType());
                 int colorId = int(pg->color()->id());
@@ -469,8 +482,9 @@ void BatchedAffiliateAPIPGRetriever::transferJobFinished(TransferJob *j)
                 const int colorId = item[u"color_id"].toInt();
 
                 auto pit = std::find_if(m_currentBatch.begin(), m_currentBatch.end(),
-                                        [&](const auto *pg) {
-                    return pg && (QLatin1String(pg->item()->id()) == itemId)
+                                        [&](const auto &pg) {
+                    return pg && pg->item() && pg->color()
+                            && (QLatin1String(pg->item()->id()) == itemId)
                             && (itemTypeApiId(pg->item()->itemType()) == typeId)
                             && (pg->color()->id() == uint(colorId));
                 });
@@ -500,9 +514,8 @@ void BatchedAffiliateAPIPGRetriever::transferJobFinished(TransferJob *j)
                 parsePGJson(u"ordered_used",   int(Time::PastSix), int(Condition::Used));
 
                 emit finished(*pit, pgdata);
-                (*pit)->release();
 
-                *pit = nullptr;  // mark as "dealt with"
+                pit->reset();  // mark as "dealt with", releasing the reference
             }
 
             // Make sure to fail any remaining pg requests that might still be in m_currentBatch.
@@ -515,12 +528,13 @@ void BatchedAffiliateAPIPGRetriever::transferJobFinished(TransferJob *j)
             throw Exception(j->errorString() + u'(' + QString::number(j->responseCode()) + u')');
         }
     } catch (const Exception &e) {
-        for (auto *pg : std::as_const(m_currentBatch)) {
-            if (pg) {
+        for (const auto &pg : std::as_const(m_currentBatch)) {
+            if (pg && pg->item() && pg->color()) {
                 emit failed(pg, u"PG download for " + QChar::fromLatin1(pg->item()->itemType()->id())
                                     + u' ' + QString::fromLatin1(pg->item()->id()) + u" in "
                             + pg->color()->name() + u" failed: " + e.errorString());
-                pg->release();
+            } else if (pg) {
+                emit failed(pg, u"PG download failed: " + e.errorString());
             }
         }
     }
@@ -558,9 +572,6 @@ PriceGuideCache::PriceGuideCache(Core *core)
     d->q = this;
     d->m_core = core;
 
-    Q_ASSERT(!PriceGuide::s_cache);
-    PriceGuide::s_cache = this;
-
     d->m_cacheStatId = AppStatistics::inst()->addSource(u"Price-guides in memory cache"_qs);
     d->m_loadsStatId = AppStatistics::inst()->addSource(u"Price-guides queued for disk load"_qs);
     d->m_savesStatId = AppStatistics::inst()->addSource(u"Price-guides queued for disk save"_qs);
@@ -582,11 +593,11 @@ PriceGuideCache::PriceGuideCache(Core *core)
     qInfo() << "Using BrickLink price-guide retriever plugin:" << d->m_retriever->name();
 
     connect(d->m_retriever, &PriceGuideRetrieverInterface::finished,
-            this, [this](PriceGuide *pg, const PriceGuide::Data &data) {
+            this, [this](const PriceGuideRef &pg, const PriceGuide::Data &data) {
         d->retrieveFinished(pg, data);
     });
     connect(d->m_retriever, &PriceGuideRetrieverInterface::failed,
-            this, [this](PriceGuide *pg, const QString &errorString) {
+            this, [this](const PriceGuideRef &pg, const QString &errorString) {
         d->retrieveFailed(pg, errorString);
     });
 
@@ -664,7 +675,6 @@ PriceGuideCache::~PriceGuideCache()
     }
     d->m_db.close();
     delete d;
-    PriceGuide::s_cache = nullptr;
 }
 
 void PriceGuideCache::setUpdateInterval(int interval)
@@ -674,31 +684,9 @@ void PriceGuideCache::setUpdateInterval(int interval)
 
 void PriceGuideCache::clearCache()
 {
-    qsizetype lastLeftOver = 0;
-    QElapsedTimer timer;
-    QElapsedTimer absoluteTimer;
-    absoluteTimer.start();
-
-    // the loader/saver threads might hold references, so we need to wait for their queues to drain
-    while (true) {
-        qsizetype leftOver = d->m_cache.clear();
-
-        if (!leftOver) {
-            break;
-        } else if ((leftOver == lastLeftOver) && (timer.elapsed() > 500)) {
-            qCCritical(LogCache) << "PriceGuides:" << leftOver << "active references after"
-                                 << absoluteTimer.elapsed() << "ms - giving up, expect a crash soon.";
-            break;
-        }
-
-        if (lastLeftOver != leftOver) {
-            qCWarning(LogCache) << "PriceGuides:" << leftOver << "active references after"
-                                << absoluteTimer.elapsed() << "ms - waiting.";
-            lastLeftOver = leftOver;
-            timer.start();
-        }
-        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 500);
-    }
+    // Price guides that are still in use - by a widget, by the retriever, by the loader/saver
+    // queues - simply outlive the cache entry now, so there is nothing to wait for anymore.
+    d->m_cache.clear();
 
     AppStatistics::inst()->update(d->m_cacheStatId, d->m_cache.size());
 }
@@ -708,30 +696,32 @@ QPair<int, int> PriceGuideCache::cacheStats() const
     return qMakePair(d->m_cache.totalCost(), d->m_cache.maxCost());
 }
 
-PriceGuide *PriceGuideCache::priceGuide(const Item *item, const Color *color, bool highPriority)
+PriceGuideRef PriceGuideCache::priceGuide(const Item *item, const Color *color, bool highPriority)
 {
     return priceGuide(item, color, currentVatType(), highPriority);
 }
 
-PriceGuide *PriceGuideCache::priceGuide(const Item *item, const Color *color, VatType vatType,
-                                        bool highPriority)
+PriceGuideRef PriceGuideCache::priceGuide(const Item *item, const Color *color, VatType vatType,
+                                          bool highPriority)
 {
     if (!item || !color || !supportedVatTypes().contains(vatType))
-        return nullptr;
+        return { };
 
     auto key = PriceGuideCachePrivate::cacheKey(item, color, vatType);
-    PriceGuide *pg = d->m_cache[key];
+    PriceGuideRef pg = d->m_cache[key];
+
+    // see PictureCache::picture()
+    if (pg && pg->isStale()) {
+        d->m_cache.remove(key);
+        pg.reset();
+    }
 
     bool needToLoad = !pg || (!pg->isValid() && (pg->updateStatus() == UpdateStatus::UpdateFailed));
 
     if (!pg) {
-        auto newPg = std::make_unique<PriceGuide>(PriceGuide::Private { }, item, color, vatType);
+        PriceGuideRef newPg { new PriceGuide(PriceGuide::Private { }, item, color, vatType),
+                              &deletePriceGuide };
         pg = d->m_cache.insert(key, std::move(newPg));
-        if (!pg) {
-            qCWarning(LogCache, "Can not add price guide to cache (cache max/cur: %d/%d, item id: %s)",
-                      int(d->m_cache.maxCost()), int(d->m_cache.totalCost()), item->id().constData());
-            return nullptr;
-        }
         AppStatistics::inst()->update(d->m_cacheStatId, d->m_cache.size());
     }
 
@@ -745,9 +735,10 @@ PriceGuide *PriceGuideCache::priceGuide(const Item *item, const Color *color, Va
     return pg;
 }
 
-void PriceGuideCache::updatePriceGuide(PriceGuide *pg, bool highPriority)
+void PriceGuideCache::updatePriceGuide(const PriceGuideRef &pg, bool highPriority)
 {
-    if (!pg || (pg->m_updateStatus == UpdateStatus::Updating))
+    // a stale price guide has no item anymore, so there is nothing left to fetch
+    if (!pg || !pg->item() || (pg->m_updateStatus == UpdateStatus::Updating))
         return;
 
     if (QNetworkInformation::instance()
@@ -768,7 +759,7 @@ void PriceGuideCache::updatePriceGuide(PriceGuide *pg, bool highPriority)
     d->m_retriever->fetch(pg, highPriority);
 }
 
-void PriceGuideCache::cancelPriceGuideUpdate(PriceGuide *pg)
+void PriceGuideCache::cancelPriceGuideUpdate(const PriceGuideRef &pg)
 {
     d->m_retriever->cancel(pg);
 }
@@ -849,7 +840,7 @@ quint64 PriceGuideCachePrivate::cacheKey(const Item *item, const Color *color, V
             | (quint64(item ? (item->index() + 1) : 0));
 }
 
-QString PriceGuideCachePrivate::databaseTag(PriceGuide *pg, PriceGuideRetrieverInterface *retriever)
+QString PriceGuideCachePrivate::databaseTag(const PriceGuide *pg, PriceGuideRetrieverInterface *retriever)
 {
     if (!pg || !pg->item() || !pg->color() || !retriever)
         return { };
@@ -859,22 +850,21 @@ QString PriceGuideCachePrivate::databaseTag(PriceGuide *pg, PriceGuideRetrieverI
             + u'@' + retriever->id() + QString::number(int(pg->vatType()));
 }
 
-bool PriceGuideCachePrivate::isUpdateNeeded(PriceGuide *pg) const
+bool PriceGuideCachePrivate::isUpdateNeeded(const PriceGuide *pg) const
 {
     return (m_updateInterval > 0)
             && (!pg->isValid()
                 || (pg->lastUpdated().secsTo(QDateTime::currentDateTime()) > m_updateInterval));
 }
 
-void PriceGuideCachePrivate::load(PriceGuide *pg, bool highPriority)
+void PriceGuideCachePrivate::load(PriceGuideRef pg, bool highPriority)
 {
     if (!pg)
         return;
 
-    pg->addRef();
     m_loadMutex.lock();
     m_loadQueue.insert(highPriority ? 0 : m_loadQueue.size(),
-                       { pg, highPriority ? LoadHighPriority : LoadLowPriority });
+                       { std::move(pg), highPriority ? LoadHighPriority : LoadLowPriority });
     m_loadTrigger.wakeOne();
     auto queueSize = m_loadQueue.size();
     m_loadMutex.unlock();
@@ -882,14 +872,13 @@ void PriceGuideCachePrivate::load(PriceGuide *pg, bool highPriority)
     AppStatistics::inst()->update(m_loadsStatId, queueSize);
 }
 
-void PriceGuideCachePrivate::save(PriceGuide *pg)
+void PriceGuideCachePrivate::save(PriceGuideRef pg)
 {
     if (!pg)
         return;
 
-    pg->addRef();
     m_saveMutex.lock();
-    m_saveQueue.append({ pg, SaveData });
+    m_saveQueue.append({ std::move(pg), SaveData });
     m_saveTrigger.wakeOne();
     auto queueSize = m_saveQueue.size();
     m_saveMutex.unlock();
@@ -911,8 +900,7 @@ void PriceGuideCachePrivate::loadThread(QString dbName, int index)
             m_loadTrigger.wait(&m_loadMutex);
 
         if (m_stop) {
-            for (auto [pg, type] : std::as_const(m_loadQueue))
-                pg->release();
+            m_loadQueue.clear();
             continue;
         }
 
@@ -930,7 +918,7 @@ void PriceGuideCachePrivate::loadThread(QString dbName, int index)
             bool highPriority = (loadType == LoadHighPriority);
 
             if (db.isOpen()) {
-                loadQuery.bindValue(u":id"_qs, databaseTag(pg, m_retriever));
+                loadQuery.bindValue(u":id"_qs, databaseTag(pg.get(), m_retriever));
 
                 loadQuery.exec();
                 if (loadQuery.next()) {
@@ -941,14 +929,14 @@ void PriceGuideCachePrivate::loadThread(QString dbName, int index)
                 }
                 loadQuery.finish();
             }
-            pg->addRef(); // the release will happen on the main thread (see the invokeMethod below)
+            // the captured reference keeps the price guide alive until this has run - or until it
+            // is discarded, if the core object goes away first
             QMetaObject::invokeMethod(m_core, [this, loaded, lastUpdated, data, highPriority, pg=pg]() { // clang bug: P1091R3
                 if (loaded) {
                     pg->setLastUpdated(lastUpdated);
                     std::memcpy(&pg->m_data, data, sizeof(PriceGuide::Data));
 
                     // update the last accessed time stamp
-                    pg->addRef();
                     m_saveMutex.lock();
                     m_saveQueue.append({ pg, SaveAccessTimeOnly });
                     m_saveTrigger.wakeOne();
@@ -957,7 +945,7 @@ void PriceGuideCachePrivate::loadThread(QString dbName, int index)
                 pg->setIsValid(loaded);
                 pg->setUpdateStatus(UpdateStatus::Ok);
 
-                if (pg->m_updateAfterLoad || isUpdateNeeded(pg))  {
+                if (pg->m_updateAfterLoad || isUpdateNeeded(pg.get()))  {
                     pg->m_updateAfterLoad = false;
                     q->updatePriceGuide(pg, highPriority);
                 }
@@ -965,10 +953,7 @@ void PriceGuideCachePrivate::loadThread(QString dbName, int index)
                     pg->setIsValid(false);
 
                 emit q->priceGuideUpdated(pg);
-                pg->release();
             }, Qt::QueuedConnection);
-
-            pg->release();
         }
     }
     db.close();
@@ -1007,8 +992,8 @@ void PriceGuideCachePrivate::saveThread(QString dbName, int index)
 
                 qint64 now = QDateTime::currentMSecsSinceEpoch();
 
-                for (auto [pg, saveType] : saveQueueCopy) {
-                    auto dbTag = databaseTag(pg, m_retriever);
+                for (const auto &[pg, saveType] : saveQueueCopy) {
+                    auto dbTag = databaseTag(pg.get(), m_retriever);
 
                     if (saveType == SaveAccessTimeOnly) {
                         accessQuery.bindValue(u":id"_qs, dbTag);
@@ -1034,7 +1019,6 @@ void PriceGuideCachePrivate::saveThread(QString dbName, int index)
                         }
                         saveQuery.finish();
                     }
-                    pg->release();
                 }
                 db.commit();
             }
@@ -1043,7 +1027,7 @@ void PriceGuideCachePrivate::saveThread(QString dbName, int index)
     db.close();
 }
 
-void PriceGuideCachePrivate::retrieveFinished(PriceGuide *pg, const PriceGuide::Data &data)
+void PriceGuideCachePrivate::retrieveFinished(const PriceGuideRef &pg, const PriceGuide::Data &data)
 {
     pg->setLastUpdated(QDateTime::currentDateTime());
     pg->m_data = data;
@@ -1073,7 +1057,7 @@ void PriceGuideCachePrivate::retrieveFinished(PriceGuide *pg, const PriceGuide::
     emit q->priceGuideUpdated(pg);
 }
 
-void PriceGuideCachePrivate::retrieveFailed(PriceGuide *pg, const QString &errorString [[maybe_unused]])
+void PriceGuideCachePrivate::retrieveFailed(const PriceGuideRef &pg, const QString &errorString [[maybe_unused]])
 {
     qCWarning(LogCache).noquote() << errorString;
     pg->setUpdateStatus(UpdateStatus::UpdateFailed);
@@ -1083,98 +1067,5 @@ void PriceGuideCachePrivate::retrieveFailed(PriceGuide *pg, const QString &error
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-
-/*! \qmltype PriceGuide
-    \inqmlmodule BrickLink
-    \ingroup qml-api
-    \brief This value type represents the price guide for a BrickLink item.
-
-    Each price guide of an item in the BrickLink catalog is available as a PriceGuide object.
-
-    You cannot create PriceGuide objects yourself, but you can retrieve a PriceGuide object given the
-    item and color id via BrickLink::priceGuide().
-
-    \note PriceGuides aren't readily available, but need to be asynchronously loaded (or even
-          downloaded) at runtime. You need to connect to the signal BrickLink::priceGuideUpdated()
-          to know when the data has been loaded.
-
-    The following three enumerations are used to retrieve the price guide data from this object:
-
-    \b Time
-    \value BrickLink.Time.PastSix   The sales in the last six months.
-    \value BrickLink.Time.Current   The items currently for sale.
-
-    \b Condition
-    \value BrickLink.Condition.New       Only items in new condition.
-    \value BrickLink.Condition.Used      Only items in used condition.
-
-    \b Price
-    \value BrickLink.Price.Lowest    The lowest price.
-    \value BrickLink.Price.Average   The average price.
-    \value BrickLink.Price.WAverage  The weighted average price.
-    \value BrickLink.Price.Highest   The highest price.
-
-*/
-/*! \qmlproperty bool PriceGuide::isNull
-    \readonly
-    Returns whether this PriceGuide is \c null. Since this type is a value wrapper around a C++
-    object, we cannot use the normal JavaScript \c null notation.
-*/
-/*! \qmlproperty ItemPointer PriceGuide::item
-    \readonly
-    The BrickLink item reference this price guide is requested for as a raw
-    C++ pointer. You can convert it to a QML \l Item object like this:
-    \code
-    let item = BrickLink.item(pg.item)
-    \endcode
-*/
-/*! \qmlproperty ColorPointer PriceGuide::color
-    \readonly
-    The BrickLink color reference this price guide is requested for as a raw
-    C++ pointer. You can convert it to a QML \l Color object like this:
-    \code
-    let color = BrickLink.color(pg.color)
-    \endcode
-*/
-/*! \qmlproperty date PriceGuide::lastUpdated
-    \readonly
-    Holds the time stamp of the last successful update of this price guide.
-*/
-/*! \qmlproperty UpdateStatus PriceGuide::updateStatus
-    \readonly
-    Returns the current update status. The available values are:
-    \value BrickLink.UpdateStatus.Ok            The last picture load (or download) was successful.
-    \value BrickLink.UpdateStatus.Loading       BrickStore is currently loading the picture from the local cache.
-    \value BrickLink.UpdateStatus.Updating      BrickStore is currently downloading the picture from BrickLink.
-    \value BrickLink.UpdateStatus.UpdateFailed  The last download from BrickLink failed. isValid might still be
-                                                \c true, if there was a valid picture available before the failed
-                                                update!
-*/
-/*! \qmlproperty bool PriceGuide::isValid
-    \readonly
-    Returns whether this object currently holds valid price guide data.
-*/
-/*! \qmlmethod PriceGuide::update(bool highPriority = false)
-    Tries to re-download the price guide from the BrickLink server. If you set \a highPriority to \c
-    true the load/download request will be prepended to the work queue instead of appended.
-*/
-/*! \qmlmethod int PriceGuide::quantity(Time time, Condition condition)
-    Returns the number of items for sale (or item that have been sold) given the \a time frame and
-    \a condition. Returns \c 0 if no data is available.
-    See the PriceGuide type documentation for the possible values of the Time and
-    Condition enumerations.
-*/
-/*! \qmlmethod int PriceGuide::lots(Time time, Condition condition)
-    Returns the number of lots for sale (or lots that have been sold) given the \a time frame and
-    \a condition. Returns \c 0 if no data is available.
-    See the PriceGuide type documentation for the possible values of the Time and
-    Condition enumerations.
-*/
-/*! \qmlmethod real PriceGuide::price(Time time, Condition condition, Price price)
-    Returns the price of items for sale (or item that have been sold) given the \a time frame,
-    \a condition and \a price type. Returns \c 0 if no data is available.
-    See the PriceGuide type documentation for the possible values of the Time,
-    Condition and Price enumerations.
-*/
 
 } // namespace BrickLink

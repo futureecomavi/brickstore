@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include <memory>
+
 #include <QtCore/QDateTime>
-#include <QtQml/qqmlregistration.h>
 
 #include "bricklink/global.h"
-#include "utility/ref.h"
 
 class Transfer;
 class TransferJob;
@@ -16,44 +16,44 @@ class TransferJob;
 namespace BrickLink {
 
 class PriceGuideCache;
+class PriceGuide;
 
-class PriceGuide : public QObject, public Ref
+// Price guides live in the PriceGuideCache, but they are shared: whoever displays one keeps it alive
+// for as long as it is needed, whether it is still cached or not. Always hold on to a price guide via
+// a PriceGuideRef, never via a raw pointer.
+using PriceGuideRef = std::shared_ptr<PriceGuide>;
+
+// Not exposed to QML: BrickLink::QmlPriceGuide is the QML facing half, as QML needs an object whose
+// lifetime it can manage in order to hold on to a reference at all.
+class PriceGuide : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
-    QML_UNCREATABLE("")
-    Q_PROPERTY(const BrickLink::Item *item READ item CONSTANT FINAL)
-    Q_PROPERTY(const BrickLink::Color *color READ color CONSTANT FINAL)
-    Q_PROPERTY(BrickLink::VatType vatType READ vatType CONSTANT FINAL)
-    Q_PROPERTY(bool isValid READ isValid NOTIFY isValidChanged FINAL)
-    Q_PROPERTY(QDateTime lastUpdated READ lastUpdated NOTIFY lastUpdatedChanged FINAL)
-    Q_PROPERTY(BrickLink::UpdateStatus updateStatus READ updateStatus NOTIFY updateStatusChanged FINAL)
 
     struct Private { };
 
 public:
-    const Item *item() const          { return m_item; }
-    const Color *color() const        { return m_color; }
+    // Both return nullptr once the database has been swapped out from under us: the pointers are
+    // raw and the objects they pointed at are long gone by then. See isStale().
+    const Item *item() const;
+    const Color *color() const;
     VatType vatType() const           { return m_vatType; }
 
-    Q_INVOKABLE void update(bool highPriority = false);
+    // A price guide outlives its cache entry whenever someone still holds a reference, and a
+    // database update can happen in between. Such a price guide cannot be used for anything
+    // anymore - it is not even possible to tell which item it belonged to.
+    bool isStale() const;
     QDateTime lastUpdated() const     { return m_lastUpdated; }
-    Q_INVOKABLE void cancelUpdate();
 
     bool isValid() const              { return m_valid; }
     UpdateStatus updateStatus() const { return m_updateStatus; }
 
-    Q_INVOKABLE int quantity(BrickLink::Time t, BrickLink::Condition c) const           { return m_data.quantities[int(t)][int(c)]; }
-    Q_INVOKABLE int lots(BrickLink::Time t, BrickLink::Condition c) const               { return m_data.lots[int(t)][int(c)]; }
-    Q_INVOKABLE double price(BrickLink::Time t, BrickLink::Condition c, BrickLink::Price p) const  { return m_data.prices[int(t)][int(c)][int(p)]; }
+    int quantity(BrickLink::Time t, BrickLink::Condition c) const           { return m_data.quantities[int(t)][int(c)]; }
+    int lots(BrickLink::Time t, BrickLink::Condition c) const               { return m_data.lots[int(t)][int(c)]; }
+    double price(BrickLink::Time t, BrickLink::Condition c, BrickLink::Price p) const  { return m_data.prices[int(t)][int(c)][int(p)]; }
 
     PriceGuide(Private, const Item *item, const Color *color, VatType vatType);
     ~PriceGuide() override;
     Q_DISABLE_COPY_MOVE(PriceGuide)
-
-    Q_INVOKABLE void addRef()         { Ref::addRef(); }
-    Q_INVOKABLE void release()        { Ref::release(); }
-    Q_INVOKABLE int refCount() const  { return Ref::refCount(); }
 
     struct Data
     {
@@ -74,6 +74,8 @@ private:
 
     QDateTime    m_lastUpdated;
 
+    quint32      m_generation      = 0; // of the database the item/color pointers point into
+
     VatType      m_vatType         : 8 = VatType::Excluded;
     char         m_retrieverId     : 8 = '0';
     bool         m_valid           : 1 = false;
@@ -82,8 +84,6 @@ private:
     uint         m_reserved        : 11 = 0;
 
     Data         m_data;
-
-    static PriceGuideCache *s_cache;
 
 private:
     void setIsValid(bool valid);
@@ -109,12 +109,12 @@ public:
     void clearCache();
     QPair<int, int> cacheStats() const;
 
-    PriceGuide *priceGuide(const Item *item, const Color *color, bool highPriority = false);
-    PriceGuide *priceGuide(const Item *item, const Color *color, VatType vatType,
-                           bool highPriority = false);
+    PriceGuideRef priceGuide(const Item *item, const Color *color, bool highPriority = false);
+    PriceGuideRef priceGuide(const Item *item, const Color *color, VatType vatType,
+                             bool highPriority = false);
 
-    void updatePriceGuide(PriceGuide *pg, bool highPriority = false);
-    void cancelPriceGuideUpdate(PriceGuide *pg);
+    void updatePriceGuide(const PriceGuideRef &pg, bool highPriority = false);
+    void cancelPriceGuideUpdate(const PriceGuideRef &pg);
     void cancelAllPriceGuideUpdates();
 
     QString retrieverName() const;
@@ -128,7 +128,8 @@ public:
     static QString descriptionForVatType(VatType vatType);
 
 signals:
-    void priceGuideUpdated(BrickLink::PriceGuide *pg);
+    // carries a reference, so a slot cannot be handed a price guide that dies while it runs
+    void priceGuideUpdated(const BrickLink::PriceGuideRef &pg);
     void currentVatTypeChanged(BrickLink::VatType vatType);
 
 private:
@@ -138,4 +139,6 @@ private:
 
 } // namespace BrickLink
 
-Q_DECLARE_METATYPE(BrickLink::PriceGuide *)
+// std::shared_ptr, unlike QSharedPointer, has no automatic metatype: needed for TransferJob's
+// user data, which is what keeps a price guide alive while it is being fetched.
+Q_DECLARE_METATYPE(BrickLink::PriceGuideRef)

@@ -96,6 +96,8 @@ Page {
             id: header
             syncView: table
             clip: true
+            // GridHeader sets sortStatus from Component.onCompleted, which does not run again for a
+            // reused delegate. There is only one row of headers, so reuse would gain nothing anyway.
             reuseItems: false
             //interactive: false
 
@@ -150,7 +152,7 @@ Page {
             columnSpacing: 0
             rowSpacing: 0
             clip: true
-            reuseItems: false
+            reuseItems: true
 
             FontMetrics { id: fontMetrics; font: root.font }
             property int cellHeight: fontMetrics.height * 2 * BS.Config.rowHeightPercent / 100 + 8
@@ -269,10 +271,14 @@ Page {
                 DelegateChoice { roleValue: BS.Document.Picture
                     GridCell {
                         id: picCell
-                        required property var edit
-                        background: QImageItem {
-                            fillColor: "white"
-                            image: (picCell.edit as BL.Picture)?.image ?? BL.BrickLink.noImage(width, height)
+                        required property var lot
+                        property BL.Lot bllot: BL.BrickLink.lot(picCell.lot)
+                        // a data role cannot carry a picture, so ask the cache for it directly
+                        property BL.Picture pic: BL.BrickLink.picture(picCell.bllot.item,
+                                                                     picCell.bllot.color)
+                        background: PictureImage {
+                            color: "white"
+                            picture: picCell.pic
                         }
                     }
                 }
@@ -281,7 +287,7 @@ Page {
                     GridCell {
                         id: colorCell
                         required property var edit
-                        QImageItem {
+                        ColorSampleImage {
                             id: colorImage
                             anchors {
                                 left: colorCell.left
@@ -289,9 +295,8 @@ Page {
                                 top: colorCell.top
                                 bottom: colorCell.bottom
                             }
-                            property real s: Screen.devicePixelRatio
                             width: colorCell.font.pixelSize * 2
-                            image: BL.BrickLink.color(colorCell.edit).sampleImage(width * s, height * s)
+                            color: BL.BrickLink.color(colorCell.edit)
                         }
                         textLeftPadding: colorImage.width + 4
                         text: display

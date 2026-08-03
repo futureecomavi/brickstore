@@ -105,7 +105,7 @@ PictureWidget::PictureWidget(QWidget *parent)
         if (w_stackLayout->currentWidget() == w_ldraw) {
             w_ldraw->resetCamera();
         } else if (m_pic) {
-            m_pic->update(true);
+            BrickLink::core()->pictureCache()->updatePicture(m_pic, true);
             m_currentImageSize = { };
             showImage();
         }
@@ -178,7 +178,7 @@ PictureWidget::PictureWidget(QWidget *parent)
     });
 
     connect(BrickLink::core()->pictureCache(), &BrickLink::PictureCache::pictureUpdated,
-            this, [this](BrickLink::Picture *pic) {
+            this, [this](const BrickLink::PictureRef &pic) {
         if (pic == m_pic) {
             if (pic->isValid())
                 m_image = pic->image();
@@ -267,11 +267,7 @@ void PictureWidget::paletteChange()
     }
 }
 
-PictureWidget::~PictureWidget()
-{
-    if (m_pic)
-        m_pic->release();
-}
+PictureWidget::~PictureWidget() = default;
 
 void PictureWidget::setItemAndColor(const BrickLink::Item *item, const BrickLink::Color *color)
 {
@@ -283,14 +279,10 @@ void PictureWidget::setItemAndColor(const BrickLink::Item *item, const BrickLink
     m_image = { };
     m_currentImageSize = { };
 
-    if (m_pic)
-        m_pic->release();
-    m_pic = item ? BrickLink::core()->pictureCache()->picture(item, color, true) : nullptr;
-    if (m_pic) {
-        m_pic->addRef();
-        if (m_pic->isValid())
-            m_image = m_pic->image();
-    }
+    m_pic = item ? BrickLink::core()->pictureCache()->picture(item, color, true)
+                 : BrickLink::PictureRef { };
+    if (m_pic && m_pic->isValid())
+        m_image = m_pic->image();
 
     w_ldraw->setItemAndColor(item, color);
 

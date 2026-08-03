@@ -558,9 +558,9 @@ McpTool::Result CatalogPriceGuideMcpTool::execute(const QJsonObject &arguments)
 
     auto *cache = BrickLink::core()->priceGuideCache();
 
-    // Per request: either a resolved+ref'd PriceGuide, or an error string.
+    // Per request: either a resolved PriceGuide, or an error string.
     struct Entry {
-        PriceGuide *pg = nullptr;
+        PriceGuideRef pg;
         QString error;
     };
     std::vector<Entry> entries;
@@ -574,22 +574,15 @@ McpTool::Result CatalogPriceGuideMcpTool::execute(const QJsonObject &arguments)
         const Color *color = nullptr;
         if (QString error = resolveItemAndColor(value.toObject(), &item, &color); !error.isEmpty()) {
             entry.error = error;
-        } else if (PriceGuide *pg = cache->priceGuide(item, color, true /*highPriority*/)) {
-            pg->addRef();
-            entry.pg = pg;
+        } else if (PriceGuideRef pg = cache->priceGuide(item, color, true /*highPriority*/)) {
             if (!pg->isValid() && (pg->updateStatus() != UpdateStatus::UpdateFailed))
-                pg->update(true);
+                cache->updatePriceGuide(pg, true);
+            entry.pg = std::move(pg);
         } else {
             entry.error = u"Could not create a price guide request"_s;
         }
-        entries.push_back(entry);
+        entries.push_back(std::move(entry));
     }
-    auto releaseGuard = qScopeGuard([&entries]() {
-        for (const Entry &e : entries) {
-            if (e.pg)
-                e.pg->release();
-        }
-    });
 
     // Phase 2: wait until every requested guide is settled (valid or failed), or
     // the overall timeout elapses.
@@ -617,10 +610,11 @@ McpTool::Result CatalogPriceGuideMcpTool::execute(const QJsonObject &arguments)
         if (!e.error.isEmpty()) {
             results.append(QJsonObject { { u"error"_s, e.error } });
         } else if (e.pg->isValid()) {
-            results.append(priceGuideJson(e.pg, e.pg->item(), e.pg->color()));
+            results.append(priceGuideJson(e.pg.get(), e.pg->item(), e.pg->color()));
         } else {
             results.append(QJsonObject {
-                { u"item_id"_s, QString::fromLatin1(e.pg->item()->id()) },
+                { u"item_id"_s, e.pg->item() ? QString::fromLatin1(e.pg->item()->id())
+                                             : QString { } },
                 { u"error"_s, u"Price guide not available yet: still fetching, try again shortly"_s }
             });
         }
@@ -661,15 +655,12 @@ McpTool::Result CatalogPictureMcpTool::execute(const QJsonObject &arguments)
     if (QString error = resolveItemAndColor(arguments, &item, &color); !error.isEmpty())
         return Result::error(error);
 
-    Picture *pic = BrickLink::core()->pictureCache()->picture(item, color, true /*highPriority*/);
+    PictureRef pic = BrickLink::core()->pictureCache()->picture(item, color, true /*highPriority*/);
     if (!pic)
         return Result::error(u"Could not create a picture request"_s);
 
-    pic->addRef();
-    auto releaseGuard = qScopeGuard([pic]() { pic->release(); });
-
     if (!pic->isValid() && (pic->updateStatus() != UpdateStatus::UpdateFailed)) {
-        pic->update(true);
+        BrickLink::core()->pictureCache()->updatePicture(pic, true);
         if (pic->updateStatus() != UpdateStatus::Ok) {
             QCoro::waitFor([]() -> QCoro::Task<> {
                 co_await qCoro(BrickLink::core()->pictureCache(),
