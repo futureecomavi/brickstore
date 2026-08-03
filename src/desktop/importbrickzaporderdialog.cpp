@@ -261,7 +261,7 @@ void ImportBrickZapOrderDialog::importOrders(const QModelIndexList &rows, bool c
     if (combined) {
         auto *doc = Document::create(new DocumentModel(std::move(combinedPr)));
         doc->setTitle(tr("Multiple BrickZap Orders"));
-        doc->setThumbnail(u"brickzap"_qs);
+        doc->setThumbnail(u"brickzap-order"_qs);
     }
 }
 

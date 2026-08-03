@@ -148,7 +148,7 @@ Document *DocumentIO::importBrickZapOrder(const BrickZap::Order *order)
 
     auto *document = Document::create(new DocumentModel(std::move(pr)));
     document->setTitle(tr("BrickZap Order %1 (%2)").arg(order->number(), order->buyerName()));
-    document->setThumbnail(u"brickzap"_qs);
+    document->setThumbnail(u"brickzap-order"_qs);
     return document;
 }
 

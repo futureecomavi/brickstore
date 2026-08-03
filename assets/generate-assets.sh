@@ -96,10 +96,16 @@ for color in "" "-dark"; do
   convert -size ${s}x${s} canvas:transparent \
         $tmp/brickzap.png -gravity center -composite \
         -colorspace sRGB $out/brickzap.png
+  # BrickZap seller actions: BrickZap mark upper-left, smaller BrickLink-equivalent glyph lower-right
   convert -size ${s}x${s} canvas:transparent \
         \( $tmp/brickzap.png -scale $((s*5/8)) \) -geometry +0+0 -composite \
-        \( $tmp/brick-1x1$color.png -scale $((s*5/8)) \) -geometry +$((s*3/8))+$((s*3/8)) -composite \
+        \( $cus/bricklink-store$color.png -scale $((s*3/8)) \) -geometry +$((s*5/8))+$((s*5/8)) -composite \
         $out/brickzap-store.png
+  rsvg-convert $b/icons/$theme$color/svg/view-financial-list.svg -w $s -h $s -f png -o $tmp/financial-list$color.png
+  convert -size ${s}x${s} canvas:transparent \
+        \( $tmp/brickzap.png -scale $((s*5/8)) \) -geometry +0+0 -composite \
+        \( $tmp/financial-list$color.png -scale $((s*3/8)) \) -geometry +$((s*5/8))+$((s*5/8)) -composite \
+        $out/brickzap-order.png
 
   convert $tmp/brick-1x1$color.png -colorspace sRGB -scale $s $cus/overlay_plus.png -scale $s -composite $out/edit-additems.png
   convert $tmp/brick-1x1$color.png -colorspace sRGB -scale $s $cus/overlay_divide.png -scale $s -composite $out/edit-qty-divide.png

@@ -360,7 +360,7 @@ void ActionManager::initialize()
     A("document_import_bz_store_inv",   QT_TR_NOOP("BrickZap Store Inventory..."),                NeedNetwork);
     a->m_iconName = "brickzap-store";
     A("document_import_bz_order",       QT_TR_NOOP("BrickZap Order..."),                          NeedNetwork);
-    a->m_iconName = "brickzap";
+    a->m_iconName = "brickzap-order";
     A("document_import_ldraw_model",    QT_TR_NOOP("LDraw or Studio Model..."),                   QT_TR_NOOP("Ctrl+I,Ctrl+L", "File|Import LDraw Model"));
     a->m_iconName = "bricklink-studio";
     A("document_import_csv",            QT_TR_NOOP("CSV File..."),                                QT_TR_NOOP("Ctrl+I,Ctrl+V", "File|Import CSV"));
